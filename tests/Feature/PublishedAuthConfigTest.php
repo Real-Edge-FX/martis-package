@@ -172,7 +172,7 @@ it('publishes exactly the keys the SPA reads, at every level', function () {
         ->and($auth['magicLink'])->toBe(['enabled' => false])
         ->and($auth['emailVerification'])->toBe(['enabled' => false])
         ->and(array_keys($auth['passwordChange']))->toBe(['enabled', 'url'])
-        ->and($auth['passwordLogin'])->toBe(['enabled' => true])
+        ->and($auth['passwordLogin'])->toBe(['enabled' => true, 'breakGlass' => false])
         ->and(array_keys($auth['challenge']))->toBe(['enabled', 'siteKey', 'appliesTo']);
 });
 
@@ -199,3 +199,61 @@ it('never publishes the challenge verifier, only the site key', function () {
             'appliesTo' => ['login', 'forgot'],
         ]);
 });
+
+// passwordLogin.breakGlass (v2.23.0): password sign-in is off AND the
+// break-glass list holds an address. A boolean only: the list never reaches
+// the browser.
+
+it('publishes breakGlass true only when password sign-in is off and the list is not empty', function (bool $enabled, array $list, bool $expected) {
+    config()->set('martis.auth.password_login.enabled', $enabled);
+    config()->set('martis.auth.password_login.break_glass_emails', $list);
+
+    expect(renderedAuthConfig()['passwordLogin'])->toBe(['enabled' => $enabled, 'breakGlass' => $expected]);
+})->with([
+    'on, no list' => [true, [], false],
+    'on, with a list' => [true, ['ops@example.com'], false],
+    'off, no list' => [false, [], false],
+    'off, only blank entries' => [false, ['', '  '], false],
+    'off, with a list' => [false, ['ops@example.com'], true],
+]);
+
+it('never publishes the break-glass addresses', function () {
+    config()->set('martis.auth.password_login.enabled', false);
+    config()->set('martis.auth.password_login.break_glass_emails', ['ops-secret@example.com']);
+
+    $html = test()->get('/martis/login')->assertOk()->getContent();
+
+    expect($html)->not->toContain('ops-secret')->not->toContain('break_glass');
+});
+
+// The page must never depend on the list being valid: a malformed list is
+// reported where it is used (a sign-in of a string address), not by every page
+// render of every user while password sign-in is off.
+
+it('renders the shell and the login page with a malformed break-glass list', function (mixed $list, bool $expected) {
+    config()->set('martis.auth.password_login.enabled', false);
+    config()->set('martis.auth.password_login.break_glass_emails', $list);
+
+    expect(PublishedAuthConfig::toArray()['passwordLogin'])->toBe(['enabled' => false, 'breakGlass' => $expected])
+        ->and(renderedAuthConfig()['passwordLogin'])->toBe(['enabled' => false, 'breakGlass' => $expected]);
+})->with([
+    'a string' => ['ops@example.com', false],
+    'an int' => [5, false],
+    'a bool' => [true, false],
+    'a non-string entry' => [[1], true],
+    'a nested array' => [[['ops@example.com']], true],
+    'a valid entry beside a null' => [['ops@example.com', null], true],
+]);
+
+it('still throws, naming the key, when a break-glass sign-in reads a malformed list', function (mixed $list) {
+    config()->set('martis.auth.password_login.enabled', false);
+    config()->set('martis.auth.password_login.break_glass_emails', $list);
+
+    $this->withoutExceptionHandling();
+
+    expect(fn () => $this->postJson('/martis/login', ['email' => 'ops@example.com', 'password' => 'x']))
+        ->toThrow(AuthConfigurationException::class, 'martis.auth.password_login.break_glass_emails');
+})->with([
+    'a string' => ['ops@example.com'],
+    'a non-string entry' => [[1]],
+]);

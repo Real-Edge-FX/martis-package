@@ -140,6 +140,56 @@ final class RouteMiddleware
     }
 
     /**
+     * The dedicated limit of the metric and dashboard read routes
+     * (`martis.throttle.metrics_max_attempts` per
+     * `martis.throttle.metrics_decay_minutes`, which defaults to
+     * `decay_minutes`, per user), or none: `metrics_max_attempts` unset (the
+     * default) keeps those routes in the API bucket, and
+     * `martis.throttle.enabled` false disables it like the API's. A route
+     * that takes it leaves the API throttle (`withoutMiddleware(throttle())`),
+     * so a request counts against one bucket only. Its bucket carries the
+     * prefix `throttlePrefix('metrics')`.
+     *
+     * @return list<string>
+     *
+     * @throws InvalidArgumentException when a value is not a positive whole number
+     */
+    public static function metricsThrottle(): array
+    {
+        if (! config('martis.throttle.enabled', true)) {
+            return [];
+        }
+
+        $max = config('martis.throttle.metrics_max_attempts');
+
+        if ($max === null || $max === '') {
+            return [];
+        }
+
+        $decay = config('martis.throttle.metrics_decay_minutes');
+        $decay = $decay === null || $decay === '' ? self::positiveInt('martis.throttle.decay_minutes', config('martis.throttle.decay_minutes', 1)) : self::positiveInt('martis.throttle.metrics_decay_minutes', $decay);
+
+        return ['throttle:'.self::positiveInt('martis.throttle.metrics_max_attempts', $max).','.$decay.','.self::throttlePrefix('metrics')];
+    }
+
+    private static function positiveInt(string $key, mixed $value): int
+    {
+        if (is_string($value) && preg_match('/^[0-9]+$/', $value) === 1) {
+            $value = (int) $value;
+        }
+
+        if (! is_int($value) || $value < 1) {
+            throw new InvalidArgumentException(sprintf(
+                'The [%s] config value must be a positive whole number, got %s.',
+                $key,
+                is_scalar($value) ? var_export($value, true) : get_debug_type($value),
+            ));
+        }
+
+        return $value;
+    }
+
+    /**
      * The dedicated limit of the rich text attachment upload:
      * `martis.attachments.throttle_max` uploads per
      * `martis.attachments.throttle_decay` minutes, per user, on top of the

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo, type RefObject } from 'react'
+import { PerPageSelect } from '@/components/CompactSelect'
 import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError } from '@/lib/api'
@@ -577,7 +578,6 @@ function AttachModal({
 }) {
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
-  const { t: tRes } = useTranslation('resources')
 
   useModalHistoryLock(true)
 
@@ -742,18 +742,7 @@ function AttachModal({
                 </button>
               )}
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <label className="text-xs martis-text-muted whitespace-nowrap">{tRes('per_page', 'Per page')}:</label>
-              <select
-                value={attachPerPage}
-                onChange={(e) => { setAttachPerPage(Number(e.target.value)); setAttachPage(1) }}
-                className="martis-perpage-select"
-              >
-                {perPageOptions.map((opt) => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-              </select>
-            </div>
+            <PerPageSelect value={attachPerPage} options={perPageOptions} onChange={(next) => { setAttachPerPage(next); setAttachPage(1) }} />
           </div>
         </div>
 

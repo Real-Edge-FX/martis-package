@@ -99,6 +99,21 @@ public function detailSidebar(Request $request): array
 
 Fields rendered in the sidebar are automatically removed from the main `fieldsForDetail()` body so they only appear once. Below 1100px the layout collapses to a single column and the sidebar pushes to the bottom. Default: empty (single-column layout).
 
+### detailKicker()
+
+The small uppercase heading above the detail field block (and above the sidebar). `null` (default) keeps the translated "Details"; a string is shown verbatim (translate it yourself); `false` hides the heading. v2.23.0+.
+
+```php
+public function detailKicker(Request $request): string|false|null
+{
+    return __('Record sheet'); // or false to hide, null for "Details"
+}
+```
+
+The detail drawer has no such heading, so the method does not affect it. The value is sent with the resource schema as `detailKicker`.
+
+Detail rows honour `Field::fullWidth()` and `Field::hideLabelOnDetail()` (see [fields.md](fields.md)), and each row carries `data-field` (the attribute) and `data-type` (the field component) for host CSS. Fields inside a `Section` or `Panel` follow the same rules: `fullWidth()` takes the whole row of the section grid (whatever `colSpan()` says), `hideLabelOnDetail()` keeps a screen-reader label, and each row carries the same hooks.
+
 ### Context-specific field overrides
 
 Override any of `fieldsForIndex`, `fieldsForDetail`, `fieldsForCreate`, `fieldsForUpdate`, `fieldsForInlineCreate`, or `fieldsForPreview` to return a different field set per context. Each defaults to `fields($request)` so the override is opt-in.
@@ -886,6 +901,17 @@ Id::make();                      // auto: 80px from the type default
 Text::make('name');              // auto: minWidth 220px when name = titleAttribute
 Badge::make('state')->width('96px');
 ```
+
+### stickyActions()
+
+```php
+public static function stickyActions(): bool
+{
+    return true; // default: false
+}
+```
+
+Pins the row-actions column to the right edge of the index table (and of a lens) while a wide table scrolls sideways, with a left hairline and an opaque background that follows the zebra, hover and selected row states in light and dark. Combine it with `Field::hideBelow()` and `maxWidth()` to keep narrow viewports usable. v2.23.0+.
 
 #### Opting out of the type-default heuristics
 

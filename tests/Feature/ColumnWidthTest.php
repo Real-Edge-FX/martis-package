@@ -24,6 +24,8 @@ it('exposes an empty column block when no width is declared', function () {
         'minWidth' => null,
         'maxWidth' => null,
         'truncate' => false,
+        'textAlign' => null,
+        'hideBelow' => null,
     ]);
 });
 
@@ -61,6 +63,8 @@ it('accepts width, minWidth, maxWidth and truncate fluent calls', function () {
         'minWidth' => '160px',
         'maxWidth' => '320px',
         'truncate' => true,
+        'textAlign' => null,
+        'hideBelow' => null,
     ]);
 });
 
@@ -158,6 +162,8 @@ it('skips type defaults when martis.index.column_defaults is disabled', function
         'minWidth' => null,
         'maxWidth' => null,
         'truncate' => false,
+        'textAlign' => null,
+        'hideBelow' => null,
     ]);
 
     // Id's default 80px width is gone.

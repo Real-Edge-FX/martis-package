@@ -521,6 +521,8 @@ Shipped locales: `en` (English), `pt_BR` (Brazilian Portuguese), `pt_PT` (Europe
     'enabled' => env('MARTIS_THROTTLE_ENABLED', true),
     'max_attempts' => (int) env('MARTIS_THROTTLE_MAX', 120),
     'decay_minutes' => (int) env('MARTIS_THROTTLE_DECAY', 1),
+    'metrics_max_attempts' => env('MARTIS_THROTTLE_METRICS_MAX'),     // null: metrics stay in the API bucket (v2.23.0)
+    'metrics_decay_minutes' => env('MARTIS_THROTTLE_METRICS_DECAY'),  // null: decay_minutes
 ],
 ```
 
@@ -529,8 +531,12 @@ Shipped locales: `en` (English), `pt_BR` (Brazilian Portuguese), `pt_PT` (Europe
 | `enabled` | `bool` | `true` | Set `false` to disable API rate limiting. |
 | `max_attempts` | `int` | `120` | Maximum requests per window, per signed-in user of the Martis guard, counted across the Martis API and every Tool's routes (v2.0). |
 | `decay_minutes` | `int` | `1` | Rate limit window in minutes. |
+| `metrics_max_attempts` | `int\|null` | `null` | A bucket of its own for the metric and dashboard read routes (v2.23.0). `null` keeps them in the API bucket, as before. |
+| `metrics_decay_minutes` | `int\|null` | `null` | Window of the metrics bucket in minutes; `null` takes `decay_minutes`. |
 
 The limit is Laravel's `throttle` middleware with a key prefix, `throttle:{max},{decay},martis-api:{guard}:` (`RouteMiddleware::throttlePrefix('api')`, v2.0.1). Laravel keys a signed-in user's bucket on `sha1()` of the identifier alone, so without the prefix the Martis guard's user 5 shared a bucket with a site route's plain `throttle` for the site user 5 (an `admins` guard beside the site's `users`), or for the same person. The verification email resend (`martis-verification:{guard}:`) keeps its own limit in its own bucket: before v2.0.1 it counted in the API's, so a resend answered `429` after three API requests in the same minute. The 2FA challenge has a named limiter of its own since v2.4.0 (`martis-2fa-challenge`, see [2FA challenge throttle](#2fa-challenge-throttle)), with the Martis guard in its keys.
+
+**A bucket for the metrics (v2.23.0).** A dashboard of many cards computes one request per card and refreshes them on a timer, so it can use up the API bucket and make the rest of the panel answer `429`. Set `MARTIS_THROTTLE_METRICS_MAX` (and, if the window differs, `MARTIS_THROTTLE_METRICS_DECAY`) and the routes that read a dashboard or compute a metric (`GET /api/dashboards`, `/api/dashboards/{dashboard}`, `/api/dashboards/{dashboard}/cards/{card}` and `/api/resources/{resource}/cards/{card}`) count against `throttle:{max},{decay},martis-metrics:{guard}:` (`RouteMiddleware::throttlePrefix('metrics')`) and only against it: they leave the API throttle, so a metric read never also counts in the API bucket, and the API bucket never sees them. Every other route keeps the API bucket. Unset (the default) changes nothing. `MARTIS_THROTTLE_ENABLED=false` turns both buckets off. An empty variable (`MARTIS_THROTTLE_METRICS_MAX=`) is read as unset, like every other empty variable of the package; a value that is set and is not a positive whole number (`0`, `-5`, `lots`) throws an `InvalidArgumentException` naming the key when the routes are registered.
 
 ## Theme
 
@@ -1267,6 +1273,22 @@ Translations remain the recommended path for multi-locale apps. Use these env va
 
 Toggles the theme switcher and locale picker that float on the auth pages.
 
+## Session guards (v2.23.0)
+
+```php
+'auth' => [
+    'session_guards' => null, // or a list of guard names, e.g. ['site']
+],
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `auth.session_guards` | `array<string>\|null` | `null` | The guards, besides the Martis guard, that sign in people and write Laravel's `sessions.user_id`. `null` (default): every `session` guard of `config/auth.php` and the app's default guard count, as before. A list: only the Martis guard and the guards named there count. `[]` means the Martis guard only. The Martis guard is always counted. A value that is not a list of names, a name that is not in `auth.guards`, or a name whose guard does not use the `session` driver (a token or custom-driver guard never writes the column) throws an `InvalidArgumentException` naming the key, the first time a revocation, a demotion sweep or the profile reads it (it is not read at boot). |
+
+Why it exists: when the guards that write the column sign in users of more than one table, one id can be two people, so Martis neither deletes the session rows (SSO `revokeFor()`, `authz.revoke_sessions_on_demote`) nor lists them (the profile's Browser sessions) and logs a warning. Laravel merges its own `web` guard, on the `users` provider, into every application's `auth.guards`, so an admin-only app whose people live in another table reads as ambiguous although nothing signs in through `web`. Declare the guards that really write the column to lift that.
+
+**The list must be complete.** A guard that signs in people but is left out of it can make Martis delete, or list in the profile, the session of another person who has the same id in another table. That is why the default stays `null`: the risk moves to the application only by an explicit setting. The tables the guards read are still compared by connection and table, so guards that share one table never count as ambiguous. See [SSO → revocation](sso.md#ending-an-sso-session-age-revocation-revalidation-v2210) and [Authorization → Revoke sessions on demote](authorization.md#revoke-sessions-on-demote).
+
 ## Password sign-in switch (v2.21.0)
 
 ```php
@@ -1280,8 +1302,8 @@ Toggles the theme switcher and locale picker that float on the auth pages.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| `auth.password_login.enabled` | `bool` | `true` | `false` turns email and password sign-in off for an SSO-only panel: `POST /login` and `POST /api/auth/login` answer 403 for every address before the controller reads a credential, the password reset flow is off with it, and the login page shows the SSO buttons only (`?password_login=1` still shows the form). An empty string (`MARTIS_PASSWORD_LOGIN_ENABLED=`) is "unset": on. Anything else that is not a boolean or a boolean string throws, naming the key, on a sign-in request or the login page (the provider boot stays up). Turning it off does not end existing sessions or remember-me cookies. |
-| `auth.password_login.break_glass_emails` | `array<string>` | `[]` | Addresses (trimmed, case-insensitive) that may still sign in with a password while it is off; the account is looked up by the trimmed, lower-cased address, so store it that way. A failed break-glass sign-in answers with the same 403 as any other address. Never published to the browser. A value that is not an array of strings throws, naming the key. |
+| `auth.password_login.enabled` | `bool` | `true` | `false` turns email and password sign-in off for an SSO-only panel: `POST /login` and `POST /api/auth/login` answer 403 for every address before the controller reads a credential, the password reset flow is off with it, and the login page shows the SSO buttons only (`?password_login=1` still shows the form when `break_glass_emails` is not empty, v2.23.0). An empty string (`MARTIS_PASSWORD_LOGIN_ENABLED=`) is "unset": on. Anything else that is not a boolean or a boolean string throws, naming the key, on a sign-in request or the login page (the provider boot stays up). Turning it off does not end existing sessions or remember-me cookies. |
+| `auth.password_login.break_glass_emails` | `array<string>` | `[]` | Addresses (trimmed, case-insensitive) that may still sign in with a password while it is off; the account is looked up by the trimmed, lower-cased address, so store it that way. A failed break-glass sign-in answers with the same 403 as any other address. Never published to the browser: only whether it holds an address (`passwordLogin.breakGlass`, v2.23.0), which is what lets the login page open the form on `?password_login=1`. A value that is not an array of strings throws, naming the key. |
 
 Magic-link sign-in, invitations and registration keep their own switches: an SSO-only panel turns them off. One warning a day (with a persistent cache store) is logged when password sign-in is off and no SSO provider is enabled and magic link is off. See [Authentication → Password sign-in switch](authentication.md#password-sign-in-switch-v2210).
 
@@ -1770,6 +1792,8 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_THROTTLE_DECAY` | `1` |
 | `MARTIS_THROTTLE_ENABLED` | `true` |
 | `MARTIS_THROTTLE_MAX` | `120` |
+| `MARTIS_THROTTLE_METRICS_DECAY` | `null` (the API decay) |
+| `MARTIS_THROTTLE_METRICS_MAX` | `null` (metrics stay in the API bucket) |
 | `MARTIS_TOAST_POSITION` | `'bottom-right'` |
 | `MARTIS_UI_LOCALES` | `'en,pt_PT,pt_BR'` |
 | `MARTIS_UI_LOCALE_LABELS` | `(no default)` |

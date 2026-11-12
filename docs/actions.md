@@ -1051,7 +1051,7 @@ class PostResource extends Resource
 | `ActionResponse::visit($path, $params)` | SPA navigation (no reload) to `$path` below the Martis base path, with `$params` added to its query string (`visit('/resources/users', ['view' => 'open'])`); a query or `#fragment` the path already has is kept (`visit('/resources/users?view=open#top', ['page' => 2])` goes to `/resources/users?view=open&page=2#top`) |
 | `ActionResponse::openInNewTab($url)` | Opens the URL in a new tab (an `http(s)` URL or a path). Declare `opensInNewTab()` on the action so the tab opens reliably (see [Opening a new tab](#opening-a-new-tab)) |
 | `ActionResponse::download($filename, $url)` | Downloads the file as `$filename` (an `http(s)` URL or a path) |
-| `ActionResponse::emit($event, $data)` | Emits `$event` with `$data` on `martisEventBus`, then the success toast (see [Client-side events](#client-side-events)) |
+| `ActionResponse::emit($event, $data, $message)` | Emits `$event` with `$data` on `martisEventBus`, then the success toast (`$message` when given, else the generic one; `->silent()` shows none). See [Client-side events](#client-side-events) |
 | `ActionResponse::modal($component, $data)` | Shows the component registered under `$component` (see [Custom modal responses](#custom-modal-responses)) |
 | `ActionResponse::openCreate()` / `openDetail()` / `openUpdate()` | Opens the matching drawer |
 
@@ -1152,6 +1152,15 @@ export function ReportsCounter() {
   return null
 }
 ```
+
+The SPA shows the generic success toast after the event. Pass `$message` as the third argument to show your own text instead, or chain `silent()` when the listener gives the feedback itself. The event is emitted and the table refreshes in every case.
+
+```php
+return ActionResponse::emit('reports:refresh', ['id' => 7], 'Report queued');
+return ActionResponse::emit('reports:copy', ['id' => 7])->silent();
+```
+
+`silent()` returns a modified copy and throws `InvalidArgumentException` on a response that is not an `emit()`. A call without `$message` or `silent()` sends the same payload as before.
 
 ---
 

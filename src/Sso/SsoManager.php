@@ -337,9 +337,10 @@ class SsoManager
         }
 
         if (GuardCatalog::sessionUserIdsAreAmbiguous()) {
-            Log::warning('Martis: the session rows of a revoked SSO user were not deleted. The session guards of config/auth.php sign in users of more than one table and sessions.user_id stores no table, so the rows of the user cannot be told apart from those of another user with the same id. Their SSO sessions end through the revocation time.', [
+            Log::warning('Martis: the session rows of a revoked SSO user were not deleted. The session guards of config/auth.php sign in users of more than one table and sessions.user_id stores no table, so the rows of the user cannot be told apart from those of another user with the same id. Their SSO sessions end through the revocation time. When only some of these guards sign in people, list them in martis.auth.session_guards.', [
                 'user_id' => $userId,
                 'tables' => GuardCatalog::sessionUserTables(),
+                'guards' => GuardCatalog::sessionGuardTables(),
             ]);
 
             return;

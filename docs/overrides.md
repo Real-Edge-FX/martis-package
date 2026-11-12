@@ -695,6 +695,30 @@ Since v1.14.0, `@martis/runtime` exposes:
 
 Import each one by name from `@martis/runtime`, which your extension build resolves to `resources/js/martis-extensions/.shims/runtime.mjs`. `martis:install` publishes that file once and `composer update` does not refresh it, so on an extension scaffolded before the version that added a name the build fails with `"Dropdown" is not exported by "resources/js/martis-extensions/.shims/runtime.mjs"`: see [Refreshing the extension scaffold after an upgrade](installation-guide.md#refreshing-the-extension-scaffold-after-an-upgrade). Their types come with the scaffold (`.shims/runtime.d.mts`, v1.38.0): see [Type-checking your extensions](installation-guide.md#type-checking-your-extensions).
 
+### Showing a validation error in a custom input (v2.23.0+)
+
+A custom field input registered with `componentRegistry` receives the server's validation message as its `error` prop. The forms render nothing around it, so the input draws the message itself. `@martis/runtime` exports the helpers the built-in inputs use:
+
+- `useFieldError(error)` returns `{ hasError, message, errorId, invalidProps }`. Spread `invalidProps` on the input (`aria-invalid` and `aria-describedby` while there is an error, nothing otherwise).
+- `<FieldError error={message} id={errorId} />` draws the message with the warning icon, in the `martis-input-error` style, as an alert. It renders nothing when the message is empty.
+
+```tsx
+import { FieldError, useFieldError } from '@martis/runtime'
+
+export function SlugInput({ value, onChange, error }) {
+  const { errorId, invalidProps } = useFieldError(error)
+
+  return (
+    <>
+      <input value={value ?? ''} onChange={(e) => onChange(e.target.value)} {...invalidProps} />
+      <FieldError error={error} id={errorId} />
+    </>
+  )
+}
+```
+
+The forms still render errors as before: this is a helper, and an input that already draws its own message keeps working unchanged.
+
 ### Example — Select inside a custom Action component
 
 ```tsx

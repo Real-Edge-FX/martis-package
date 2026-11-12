@@ -6144,6 +6144,89 @@ html:not(.dark) .martis-dropzone {
   text-decoration: underline;
 }
 
+/* `Field::textAlign('right')`: tabular figures so digits line up. */
+.martis-datatable td.martis-col-align-right {
+  font-variant-numeric: tabular-nums;
+}
+
+/* `Field::textAlign()` on a header: PrimeReact draws the header in a flex box
+   (`.p-column-header-content`) that `text-align` on the th does not move, so
+   the content is placed with `justify-content`. A sortable column's button
+   does it on its own; this is for the plain label. */
+.martis-datatable th.martis-col-align-right > .p-column-header-content {
+  justify-content: flex-end;
+}
+.martis-datatable th.martis-col-align-center > .p-column-header-content {
+  justify-content: center;
+}
+
+/* `Field::hideBelow()`: hide the column (header and cells) under a viewport
+   width. sm 640px, md 768px, lg 1024px, xl 1280px, the panel's own
+   breakpoints; "below md" means a viewport narrower than 768px. */
+@media (max-width: 639.98px) {
+  .martis-datatable th.martis-col-hide-sm,
+  .martis-datatable td.martis-col-hide-sm {
+    display: none;
+  }
+}
+@media (max-width: 767.98px) {
+  .martis-datatable th.martis-col-hide-md,
+  .martis-datatable td.martis-col-hide-md {
+    display: none;
+  }
+}
+@media (max-width: 1023.98px) {
+  .martis-datatable th.martis-col-hide-lg,
+  .martis-datatable td.martis-col-hide-lg {
+    display: none;
+  }
+}
+@media (max-width: 1279.98px) {
+  .martis-datatable th.martis-col-hide-xl,
+  .martis-datatable td.martis-col-hide-xl {
+    display: none;
+  }
+}
+
+/* `Resource::stickyActions()`: the actions column stays at the right edge
+   while the table scrolls sideways. The cells need an opaque background of
+   their own, equal to what the row shows in each state. The row's colour is
+   not on one element: a plain row takes it from the TR (`--martis-sidebar`,
+   `--martis-surface` in light), an even row and a hovered row from the TDs
+   (`--martis-row-even`, `--martis-row-hover`, whether or not the table is
+   striped), a selected row is transparent over the card behind the table. */
+.martis-datatable.martis-datatable-sticky-actions th.martis-actions-col,
+.martis-datatable.martis-datatable-sticky-actions td.martis-actions-col {
+  position: sticky;
+  right: 0;
+  box-shadow: -1px 0 0 var(--martis-border);
+}
+.martis-datatable.martis-datatable-sticky-actions .p-datatable-thead > tr > th.martis-actions-col {
+  z-index: 2;
+  background-color: var(--martis-table-header-bg) !important;
+}
+.martis-datatable.martis-datatable-sticky-actions .p-datatable-tbody > tr > td.martis-actions-col {
+  z-index: 1;
+  background-color: var(--martis-sidebar) !important;
+}
+/* `:where()` keeps the light rule as specific as the dark one, so the even,
+   selected and hover rules below still win over it in both themes. */
+:where(html:not(.dark)) .martis-datatable.martis-datatable-sticky-actions .p-datatable-tbody > tr > td.martis-actions-col {
+  background-color: var(--martis-surface) !important;
+}
+.martis-datatable.martis-datatable-sticky-actions .p-datatable-tbody > tr:nth-child(even) > td.martis-actions-col {
+  background-color: var(--martis-row-even) !important;
+}
+.martis-datatable.martis-datatable-sticky-actions .p-datatable-tbody > tr.martis-row-selected > td.martis-actions-col,
+.martis-datatable.martis-datatable-sticky-actions .p-datatable-tbody > tr.p-highlight > td.martis-actions-col {
+  background-color: var(--martis-card) !important;
+}
+.martis-datatable.martis-datatable-sticky-actions .p-datatable-tbody > tr:hover > td.martis-actions-col,
+.martis-datatable.martis-datatable-sticky-actions .p-datatable-tbody > tr.martis-row-selected:hover > td.martis-actions-col,
+.martis-datatable.martis-datatable-sticky-actions .p-datatable-tbody > tr.p-highlight:hover > td.martis-actions-col {
+  background-color: var(--martis-row-hover) !important;
+}
+
 /* Checkbox column */
 .martis-datatable th.martis-select-column,
 .martis-datatable td.martis-select-column {
@@ -6563,6 +6646,33 @@ html:not(.dark) .martis-datatable tbody tr {
   border-color: var(--martis-accent);
   outline: none;
   box-shadow: none;
+}
+/* The list toolbars draw this control as a PrimeReact Dropdown (the same
+   component the filters use, so it follows the theme and dark mode). The
+   root keeps the class and the compact 2.25rem height of the native select
+   it replaced; the trigger replaces the background-image caret above. */
+.p-dropdown.martis-perpage-select {
+  display: inline-flex !important;
+  min-height: 2.25rem !important;
+  height: 2.25rem;
+  padding: 0;
+  background-image: none;
+  background-color: var(--martis-input-bg);
+  border: 1px solid var(--martis-border);
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+}
+.p-dropdown.martis-perpage-select .p-dropdown-label {
+  padding: 0 0.25rem 0 0.75rem !important;
+  min-height: 0 !important;
+  font-size: 0.875rem;
+  color: var(--martis-text);
+  background: transparent;
+}
+.p-dropdown.martis-perpage-select .p-dropdown-trigger {
+  width: 1.75rem;
+  background: transparent;
+  color: var(--martis-text-muted);
 }
 
 /* ── Fix: Paginator full light theme override (REA-1140) ─────────
@@ -9812,6 +9922,23 @@ html[data-density="dense"] .martis-drawer-icon {
   grid-template-columns: 140px 1fr;
   gap: 16px;
 }
+/* `Field::fullWidth()` (and `hideLabelOnDetail()`): one column, label above
+   the value. Same specificity as the drawer rule above, declared after it. */
+.martis-detail-row.is-full-width,
+.martis-detail-panel.is-drawer .martis-detail-row.is-full-width {
+  grid-template-columns: 1fr;
+  gap: 6px;
+  align-items: start;
+}
+.martis-detail-row.is-full-width .martis-detail-value,
+.martis-section-row.is-full-width > dd {
+  /* Reset the browser's 40px `dd` indent: the value lines up with its label. */
+  margin: 0;
+}
+.martis-detail-row.is-label-hidden,
+.martis-detail-panel.is-drawer .martis-detail-row.is-label-hidden {
+  gap: 0;
+}
 .martis-detail-label {
   font-size: 13px;
   font-weight: var(--martis-weight-medium);
@@ -9882,6 +10009,14 @@ html[data-density="dense"] .martis-detail-row {
 }
 html[data-density="dense"] .martis-detail-panel.is-drawer .martis-detail-row {
   gap: 12px;
+}
+html[data-density="dense"] .martis-detail-row.is-full-width,
+html[data-density="dense"] .martis-detail-panel.is-drawer .martis-detail-row.is-full-width {
+  gap: 4px;
+}
+html[data-density="dense"] .martis-detail-row.is-label-hidden,
+html[data-density="dense"] .martis-detail-panel.is-drawer .martis-detail-row.is-label-hidden {
+  gap: 0;
 }
 html[data-density="dense"] .martis-detail-panel {
   padding: 2px 14px;

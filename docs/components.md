@@ -83,7 +83,7 @@ Landing page after login. Configurable via `config/martis.php`:
 
 All six unauthenticated surfaces (Login, Register, 2FA challenge, 404, 403, 500) share the `components/auth/AuthFrame.tsx` shell — dot-grid background, brand-only logo row, centered Shell footer, and a guest-mode theme + language picker in the top-right via `AuthControls.tsx`.
 
-- **Login** — email + password + `Keep me signed in` toggle. SSO, Google, Forgot password, and "Create an account" render only when the matching `config.auth.*.enabled` flag is set. With `auth.password_login.enabled` off (v2.21.0) it shows the SSO buttons only, and the form again on `?password_login=1`.
+- **Login** — email + password + `Keep me signed in` toggle. SSO, Google, Forgot password, and "Create an account" render only when the matching `config.auth.*.enabled` flag is set. With `auth.password_login.enabled` off (v2.21.0) it shows the SSO buttons only, and the form again on `?password_login=1` when a break-glass address is configured (v2.23.0).
 - **Register** — `/register` route gated by `config.auth.registration.enabled`. Posts to `/{martis-path}/api/auth/register` (consumer-provided endpoint).
 - **2FA challenge** — 6-cell OTP row with auto-advance + paste-to-fill, a 30 s visual countdown, and a backup-code toggle that swaps the OTP grid for a plain recovery-code input.
 - **Error pages** — `ErrorScreen.tsx` drives 404 / 403 / 500 with a faded watermark code, accent icon, optional `incidentId` chip with copy button, and primary + secondary CTAs. `ForbiddenPage` and `NotFoundPage` are on `@martis/runtime` (v2.2.0+), so a custom page shows the 403 or 404 screen in place.
@@ -239,6 +239,8 @@ public function tableRowHover(): bool       { return true; }
 ### Pagination
 
 Page navigation controls showing current page, total records, and per-page selector.
+
+The per-page and soft-delete ("trashed") selects of the index, lenses and relationship tables (`BelongsToMany`, `MorphToMany` included) are PrimeReact `Dropdown`s since v2.23.0 (before, native `<select>` elements), so the control and its option panel follow the theme and dark mode like the filters do. The root keeps the `martis-perpage-select` class and the compact 2.25rem height; host CSS that targeted `select.martis-perpage-select` must target `.p-dropdown.martis-perpage-select` instead. The other native selects (repeater, morph-to, metric range, preferences, the sort chip) are unchanged.
 
 ### DeleteModal
 
@@ -1255,7 +1257,9 @@ Stacked label/value rows used by the resource detail page right rail and the dra
 </dl>
 ```
 
-Add `.martis-detail-panel.is-drawer` on the wrapper for drawer-tighter spacing. `.martis-detail-kicker` is the eyebrow text rendered above the panel title.
+Add `.martis-detail-panel.is-drawer` on the wrapper for drawer-tighter spacing. `.martis-detail-kicker` is the eyebrow text rendered above the panel title (its text comes from `Resource::detailKicker()`, see [resources.md](resources.md#detailkicker)).
+
+Rows the package renders carry hooks for host CSS (v2.23.0): `data-field` (the field attribute) and `data-type` (the field component), plus `.is-full-width` for a `fullWidth()` field (one column, label above the value) and `.is-label-hidden` for `hideLabelOnDetail()` (the `dt` gets `sr-only`). Rows inside a `Section` use `.martis-section-row` with the same modifiers.
 
 ### Form density helpers
 

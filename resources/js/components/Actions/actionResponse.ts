@@ -208,7 +208,8 @@ export function handleActionResponse(response: ActionResponsePayload | undefined
       if (event !== null) {
         martisEventBus.emit(event, answerData(data.data))
       }
-      success()
+      // `silent()` on the PHP side: the listener owns the feedback.
+      if (data.silent !== true) success(data.message)
       done()
       return
     }

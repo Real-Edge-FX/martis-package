@@ -285,6 +285,10 @@ interface FieldDefinition {
         minWidth?: string | null;
         maxWidth?: string | null;
         truncate?: boolean;
+        /** `Field::textAlign()`: explicit index column alignment. */
+        textAlign?: 'left' | 'center' | 'right' | null;
+        /** `Field::hideBelow()`: breakpoint below which the index column is hidden. */
+        hideBelow?: 'sm' | 'md' | 'lg' | 'xl' | null;
     };
     options?: SelectOption[];
     relatedResource?: string;
@@ -360,6 +364,8 @@ interface FieldDefinition {
     fullWidth?: boolean;
     /** Whether the label is stacked above (true) or inline (false). */
     stacked?: boolean;
+    /** `Field::hideLabelOnDetail()`: the detail row renders the value without its label. */
+    hideLabelOnDetail?: boolean;
     /** Allow access to arbitrary meta properties set via withMeta(). */
     [key: string]: unknown;
 }
@@ -484,6 +490,10 @@ interface ResourceSchema extends ResourceEmbedded {
     tableSize?: 'normal' | 'small' | 'large';
     tableRowHover?: boolean;
     tableLayout?: 'auto' | 'fixed';
+    /** `Resource::stickyActions()`: pin the index actions column to the right edge. */
+    stickyActions?: boolean;
+    /** `Resource::detailKicker()`: null = translated "Details", string = verbatim, false = hidden. */
+    detailKicker?: string | false | null;
     /** The sort applied on the initial index load, most significant key first (empty = none). */
     defaultSort?: Array<{
         attribute: string;
@@ -1863,10 +1873,13 @@ interface MartisAuthConfig {
     /** Magic-link (passwordless) sign-in. v1.8.8. */
     magicLink?: MartisMagicLinkConfig;
     /** Email and password sign-in. Off, the login page shows the SSO buttons
-     *  only, unless the URL carries `?password_login=1` (the server decides
-     *  who may then sign in). v2.21.0. */
+     *  only. `?password_login=1` opens the form again only when `breakGlass`
+     *  is true (the server decides who may then sign in). v2.21.0. */
     passwordLogin?: {
         enabled?: boolean;
+        /** Password sign-in is off AND `break_glass_emails` holds an address
+         *  (never the list). v2.23.0. */
+        breakGlass?: boolean;
     };
     /** The challenge (captcha) hook of the public forms. v2.21.0. */
     challenge?: MartisAuthChallengeConfig;
@@ -2452,6 +2465,48 @@ declare function FieldInput({ field, value, onChange, error, nestedErrors, resou
     repeaterRow?: RepeaterRowScope;
     formValues?: Record<string, unknown>;
 }): react_jsx_runtime.JSX.Element;
+
+interface FieldErrorProps {
+    /** The validation message. Nothing renders while it is empty. */
+    error?: string | null;
+    /** Optional element id, for `aria-describedby` on the input (see `useFieldError`). */
+    id?: string;
+}
+/**
+ * The inline validation message of a form field: the warning icon and the
+ * message in the `martis-input-error` style, announced as an alert.
+ *
+ * `FieldWrapper` draws its `error` prop with it, and a custom input that
+ * draws its own error uses it to look like the rest of the form.
+ */
+declare function FieldError({ error, id }: FieldErrorProps): react_jsx_runtime.JSX.Element | null;
+interface UseFieldErrorResult {
+    hasError: boolean;
+    /** The message, or `''` when there is none. */
+    message: string;
+    /** Id to give `<FieldError id={errorId} />`. Stable for the component's lifetime. */
+    errorId: string;
+    /** Spread onto the input: `aria-invalid` and `aria-describedby` while there is an error, nothing otherwise. */
+    invalidProps: {
+        'aria-invalid'?: true;
+        'aria-describedby'?: string;
+    };
+}
+/**
+ * State for a custom input that shows its validation error.
+ *
+ * ```tsx
+ * const { error: message } = props            // the FieldInputProps `error`
+ * const { errorId, invalidProps } = useFieldError(message)
+ * return (
+ *   <>
+ *     <input {...invalidProps} />
+ *     <FieldError error={message} id={errorId} />
+ *   </>
+ * )
+ * ```
+ */
+declare function useFieldError(error?: string | null): UseFieldErrorResult;
 
 interface DrawerShellProps {
     /** Title displayed in the header. */
@@ -7906,6 +7961,8 @@ declare const martisRuntime: {
     readonly NotFoundPage: typeof NotFoundPage;
     readonly FieldInput: typeof FieldInput;
     readonly FieldDisplay: typeof FieldDisplay;
+    readonly FieldError: typeof FieldError;
+    readonly useFieldError: typeof useFieldError;
     readonly NestedParentProvider: typeof NestedParentProvider;
     readonly useMartisForm: typeof useMartisForm;
     readonly FieldsForm: typeof FieldsForm;
@@ -7967,5 +8024,5 @@ declare const martisRuntime: {
  */
 type MartisRuntime = typeof martisRuntime;
 
-export { ApiError, AuthChallenge, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, PasswordChangeRequiredError, ResourceIcon, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, apiPath, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, htmlTooltip, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, parseAuthLinkFragment, pathSegment, reloadOnStaleChunk, resolveColor, routePath, routeRegistry, trustHtmlTooltip, useAuth, useAuthChallenge, useAuthLinkParams, useDashboardFilters, useDynamicCrumb, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalFocus, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRefreshRecord, useRevalidateOnFocus, useRunAction, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard, withQuery };
+export { ApiError, AuthChallenge, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldError, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, PasswordChangeRequiredError, ResourceIcon, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, apiPath, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, htmlTooltip, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, parseAuthLinkFragment, pathSegment, reloadOnStaleChunk, resolveColor, routePath, routeRegistry, trustHtmlTooltip, useAuth, useAuthChallenge, useAuthLinkParams, useDashboardFilters, useDynamicCrumb, useError, useEscapeLayer, useFieldError, useIsMobile, useMartisForm, useModalFocus, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRefreshRecord, useRevalidateOnFocus, useRunAction, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard, withQuery };
 export type { ActionResponseModalProps, ActiveFilters, AuthChallengeProps, AuthChallengeState, AuthLinkParams, ChallengeSurface, DashboardFiltersContextValue, DashboardFiltersOptions, DashboardFiltersUpdate, DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, HtmlTooltipProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, ModalFocusOptions, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, RefreshRecord, RegisteredRoutePageProps, ResourceIconProps, RouteRegistration, RunAction, RunActionOptions, RunActionResult, SetDashboardFilters, Shortcut, ShortcutOptions, ToolDescriptor, TooltipProps, TopbarSlotPlacement, TopbarSlotProps, UseToolFieldsResult };

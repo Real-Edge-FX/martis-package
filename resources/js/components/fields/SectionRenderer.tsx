@@ -184,23 +184,39 @@ export function SectionDisplay({
           className="martis-field-grid martis-section-grid martis-form-grid"
           style={fieldGridStyle(section.columns)}
         >
-          {fields.map((field) => (
-            <div
-              key={field.attribute}
-              style={fieldGridSpanStyle(field, section.columns)}
-            >
-              <dt className="martis-detail-label mb-1">{field.label}<FieldLabelTooltip text={field.tooltip} /></dt>
-              <dd>
-                <FieldDisplay
-                  field={field}
-                  value={values[field.attribute]}
-                  resourceKey={resourceKey}
-                  resourceId={resourceId}
-                  context="detail"
-                />
-              </dd>
-            </div>
-          ))}
+          {fields.map((field) => {
+            const hideLabel = field.hideLabelOnDetail === true
+            // `fullWidth()` takes the whole row of the section grid, whatever
+            // `colSpan()` says; `hideLabelOnDetail()` implies it, as on a
+            // plain detail row.
+            const fullRow = field.fullWidth === true || hideLabel
+            const classes = ['martis-section-row']
+            if (fullRow) classes.push('is-full-width')
+            if (hideLabel) classes.push('is-label-hidden')
+            return (
+              <div
+                key={field.attribute}
+                className={classes.join(' ')}
+                data-field={field.attribute}
+                data-type={field.component ?? field.type}
+                style={fullRow ? fieldGridSpanStyle({}, section.columns) : fieldGridSpanStyle(field, section.columns)}
+              >
+                <dt className={hideLabel ? 'martis-detail-label mb-1 sr-only' : 'martis-detail-label mb-1'}>
+                  {field.label}
+                  {!hideLabel && <FieldLabelTooltip text={field.tooltip} />}
+                </dt>
+                <dd>
+                  <FieldDisplay
+                    field={field}
+                    value={values[field.attribute]}
+                    resourceKey={resourceKey}
+                    resourceId={resourceId}
+                    context="detail"
+                  />
+                </dd>
+              </div>
+            )
+          })}
         </dl>
       )}
     </SectionContainer>

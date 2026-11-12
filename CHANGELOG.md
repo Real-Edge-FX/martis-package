@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.23.0] — 2026-11-12
+
+Minor release from three batches of consumer requests: SSO operations (a check command, a declared list of session guards, a stricter signed token, the break-glass flag on the login page), table and detail presentation (full-width detail rows, column alignment, responsive columns, a sticky actions column, dropdown selects), and behaviour (the dashboard cache follows the cards, an emit message for actions, a field error helper for custom inputs, a throttle bucket for the metrics). One bug is fixed: SSO revocation on the Redis cache store. Read [Upgrading to v2.23.0](docs/upgrading.md): the login page now opens the password form on `?password_login=1` only when a break-glass address is configured, and a field that already calls `fullWidth()` changes on the detail page.
+
+### Security
+
+- **A signed token whose payload or footer JSON repeats a key is refused.** The check runs at any depth and compares keys after decoding, so escaped spellings of one key collide. The refusal reason is `malformed`. Tokens Martis issues never repeat a key, so nothing legitimate is affected.
+
+### Added
+
+- **`martis.auth.session_guards`.** Declare which guards write Laravel's `sessions.user_id` (default `null`: every `session` guard counts, as before). With a list, only the Martis guard (always counted) and the listed guards decide whether a session row can be attributed to one person, so an admin-only app is no longer read as ambiguous because of the `web` guard Laravel merges into every app: SSO `revokeFor()`, `authz.revoke_sessions_on_demote` and the profile's Browser sessions then work. A value that is not a list of guard names, a name that is not in `auth.guards`, or a guard whose driver is not `session` throws, naming the key and the guard. The warnings name the guards behind the tables. The list must be complete: a guard that signs in people but is left out can make Martis delete, or list, the session of another person with the same id.
+- **`php artisan martis:sso:check`.** Read-only validation of the issuer block, each enabled signed-token provider block and the SSO cache store, with the readers the runtime uses. One line per block, never prints a key or any part of one, exit code 1 on any failure and 0 when all is well or SSO is off. For a deploy script.
+- **`passwordLogin.breakGlass` in the published auth config.** A boolean: password sign-in is off and `auth.password_login.break_glass_emails` holds an entry. The list itself is never published, and the flag is computed without validating the list.
+- **`Field::hideLabelOnDetail()`** hides a field's label on the detail page and the drawer (the label stays for screen readers). Detail rows carry `data-field` and `data-type`.
+- **`Resource::detailKicker()`** sets, hides (`false`) or keeps (`null`) the small heading above the detail page.
+- **`Field::textAlign('left'|'center'|'right')`** aligns an index column, header and cells; a right-aligned column uses tabular figures. The `column` block of a field gains `textAlign` and `hideBelow` (both `null` by default). It does not apply to relationship tables yet.
+- **`Field::hideBelow('sm'|'md'|'lg'|'xl')`** hides an index column on viewports narrower than 640, 768, 1024 or 1280 px. It does not apply to relationship tables yet.
+- **`Resource::stickyActions()`** pins the actions column to the right edge of the index while the table scrolls sideways, with the background of the row in every state (stripe, hover, selected) in light and dark.
+- **`ActionResponse::emit()` takes an optional message, and `silent()` drops the toast.** `emit($event, $data, 'Saved')` shows that text instead of the generic one; `emit(...)->silent()` shows none. The event is still emitted and the table still refreshes; an existing call produces the same payload as before.
+- **`FieldError` and `useFieldError()` are exported from `@martis/runtime`**, so a custom input draws its error the way the built-in fields do and gets `aria-invalid` and `aria-describedby`. `FieldWrapper` uses the same component with the same markup.
+- **A throttle bucket for the metrics.** `martis.throttle.metrics_max_attempts` and `metrics_decay_minutes` (`MARTIS_THROTTLE_METRICS_MAX`, `MARTIS_THROTTLE_METRICS_DECAY`, default `null`: nothing changes). When set, the routes that read a dashboard or compute a metric count against a bucket of their own and never also against the API bucket. An empty variable reads as unset; a value that is set and is not a positive whole number throws, naming the key. `martis.throttle.enabled` false turns both off.
+
+### Changed
+
+- **The login page opens the password form on `?password_login=1` only when `passwordLogin.breakGlass` is true.** With password sign-in off and an empty `break_glass_emails`, the parameter is ignored (nobody could use the form). The flag is computed without validating `break_glass_emails`, so a malformed list never fails a page render: it is reported by the break-glass sign-in that reads it, naming `martis.auth.password_login.break_glass_emails`, as in v2.22.0.
+- **Detail rows and the drawer honour `Field::fullWidth()`**: one column, the label above the value, the value aligned with the label (the browser's 40px `dd` indent is reset). It was ignored there before. Fields inside a `Section` honour `fullWidth()` (the whole row of the section grid, whatever `colSpan()` says) and `hideLabelOnDetail()`, and carry `data-field` / `data-type`, the same as plain rows.
+- **The per-page and trashed selects** on the index, lenses and relationship tables are PrimeReact dropdowns instead of native selects. The class `martis-perpage-select` stays on the root, and the focusable input carries the accessible name.
+
+### Fixed
+
+- **SSO revocation on the Redis cache store.** Redis hands the revocation time back as a string and it was read as an unknown type, so a user who was revoked and later re-enabled was refused at every sign-in until the marker expired. The marker now reads as an integer or a string of digits; any other value still counts as revoked.
+- **The cached dashboard payload follows the cards.** The `dashboards` cache layer keyed the payload by user and locale only, so a card or filter added, removed or reordered in code was not shown until the TTL ran out. The key now carries an order-sensitive fingerprint of the cards and filters (class and `uriKey`).
+- **A right- or center-aligned column with a plain (not sortable) header** moves the header with the cells. The sticky actions cell matches the colour of its row in dark mode.
+
 ## [2.22.0] — 2026-11-12
 
 Minor release that hardens the signed-token SSO of v2.21.0 after a review of the replay surface: the one-time `jti` is used up before the state check, the state expires, the environment lock cannot be half configured, the issuer reports what it signs and refuses, the SSO cache store is configurable and the button label can be translated. Read [Upgrading to v2.22.0](docs/upgrading.md) first: three of the changes alter what a panel accepts or throws.

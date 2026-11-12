@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Schema;
 use Martis\Auth\GuardCatalog;
 use Martis\Auth\Listeners\RecordRoleChange;
 use Martis\Profile\BrowserSessionsService;
+use Martis\Sso\Facades\MartisSso;
 use Martis\Tests\Fixtures\GuardUsers\Admin;
 use Martis\Tests\Fixtures\GuardUsers\SiteUser;
 
@@ -168,4 +169,143 @@ it('sweeps the demoted user sessions with one table', function () {
     app(RecordRoleChange::class)->handlePermissionDetached((object) ['model' => $this->site, 'permissionsOrIds' => [7]]);
 
     expect(DB::table('sessions')->pluck('id')->all())->toBe(['oooooooooooooooooooooooooooooooooooooooo']);
+});
+
+// ===========================================================================
+// martis.auth.session_guards (v2.23.0): the app says which guards write
+// sessions.user_id. Laravel merges its own `web` guard (on `users`) into every
+// app, so an admin-only app on another table reads as ambiguous although
+// nothing signs in through `web`.
+// ===========================================================================
+
+it('keeps every session guard counted while session_guards is unset', function () {
+    config()->set('martis.auth.session_guards', null);
+
+    expect(GuardCatalog::sessionUserTables())->toBe(['sqlite|martis_test_guard_users_admins', 'sqlite|users'])
+        ->and(GuardCatalog::sessionGuardTables())->toBe(['admin' => 'sqlite|martis_test_guard_users_admins', 'web' => 'sqlite|users'])
+        ->and(GuardCatalog::sessionUserIdsAreAmbiguous())->toBeTrue();
+});
+
+it('counts the Martis guard only, besides the guards session_guards lists', function () {
+    // The stray merged `web` guard on `users` is left out: nothing signs in through it.
+    config()->set('martis.auth.session_guards', []);
+
+    expect(GuardCatalog::sessionUserTables())->toBe(['sqlite|martis_test_guard_users_admins'])
+        ->and(GuardCatalog::sessionUserIdsAreAmbiguous())->toBeFalse();
+
+    // A listed guard that signs in people of another table makes it ambiguous again.
+    config()->set('auth.guards.site', ['driver' => 'session', 'provider' => 'users']);
+    config()->set('martis.auth.session_guards', ['site']);
+    expect(GuardCatalog::sessionUserTables())->toBe(['sqlite|martis_test_guard_users_admins', 'sqlite|users'])
+        ->and(GuardCatalog::sessionUserIdsAreAmbiguous())->toBeTrue();
+});
+
+it('counts the Martis guard even when the list does not name it, and a name listed twice once', function () {
+    config()->set('martis.auth.session_guards', ['web', 'web']);
+
+    expect(GuardCatalog::sessionGuardTables())->toBe(['admin' => 'sqlite|martis_test_guard_users_admins', 'web' => 'sqlite|users'])
+        ->and(GuardCatalog::sessionUserIdsAreAmbiguous())->toBeTrue();
+
+    // The Martis guard named in the list is not counted twice.
+    config()->set('martis.auth.session_guards', ['admin']);
+    expect(GuardCatalog::sessionGuardTables())->toBe(['admin' => 'sqlite|martis_test_guard_users_admins']);
+});
+
+it('stops counting the default guard once session_guards is set', function () {
+    config()->set('auth.defaults.guard', 'web');
+    config()->set('martis.auth.session_guards', []);
+
+    expect(GuardCatalog::sessionGuardTables())->not->toHaveKey('web');
+});
+
+it('throws, naming the key, for a session_guards that is not usable', function (mixed $value) {
+    config()->set('martis.auth.session_guards', $value);
+
+    expect(fn () => GuardCatalog::sessionUserTables())->toThrow(InvalidArgumentException::class, 'martis.auth.session_guards')
+        ->and(fn () => GuardCatalog::sessionUserIdsAreAmbiguous())->toThrow(InvalidArgumentException::class, 'martis.auth.session_guards');
+})->with([
+    'a string' => ['web'],
+    'a map' => [['site' => 'web']],
+    'a guard that is not defined' => [['nope']],
+    'an empty name' => [['']],
+    'a non-string entry' => [[1]],
+    'a bool' => [false],
+]);
+
+it('throws, naming the key and the guard, for a listed guard whose driver is not session', function (array $guard) {
+    config()->set('auth.guards.api', $guard);
+    config()->set('martis.auth.session_guards', ['api']);
+
+    expect(fn () => GuardCatalog::sessionUserTables())
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.session_guards')
+        ->and(fn () => GuardCatalog::sessionUserIdsAreAmbiguous())->toThrow(InvalidArgumentException::class, '[api]')
+        ->and(fn () => MartisSso::revokeFor($this->admin->getKey()))->toThrow(InvalidArgumentException::class, 'session_guards');
+})->with([
+    'a token guard' => [['driver' => 'token', 'provider' => 'users']],
+    'a guard with no driver' => [['provider' => 'users']],
+    'a custom driver' => [['driver' => 'jwt', 'provider' => 'users']],
+]);
+
+it('names the driver in that exception, and accepts a session guard beside the Martis one', function () {
+    config()->set('auth.guards.api', ['driver' => 'token', 'provider' => 'users']);
+    config()->set('martis.auth.session_guards', ['api']);
+
+    expect(fn () => GuardCatalog::sessionUserTables())->toThrow(InvalidArgumentException::class, '[token]');
+
+    config()->set('auth.guards.site', ['driver' => 'session', 'provider' => 'users']);
+    config()->set('martis.auth.session_guards', ['site']);
+
+    expect(GuardCatalog::sessionUserTables())->toBe(['sqlite|martis_test_guard_users_admins', 'sqlite|users']);
+});
+
+it('names the unknown guard in the exception', function () {
+    config()->set('martis.auth.session_guards', ['nope']);
+
+    expect(fn () => GuardCatalog::sessionUserTables())->toThrow(InvalidArgumentException::class, '[nope]');
+});
+
+it('shows the profile sessions and revokes them with the declared guards', function () {
+    config()->set('martis.auth.session_guards', []);
+    $session = sessionGuardAs($this->admin, 'admin');
+
+    expect(app(BrowserSessionsService::class)->unsupportedReason())->toBeNull();
+    $this->withSession($session)
+        ->getJson('/martis/api/profile/sessions')
+        ->assertOk()
+        ->assertJsonPath('supported', true)
+        ->assertJsonMissingPath('reason');
+});
+
+it('deletes the session rows of a revoked SSO user with session_guards, and keeps them, with a warning, without it', function () {
+    Log::spy();
+    MartisSso::revokeFor($this->admin->getKey());
+
+    expect(DB::table('sessions')->count())->toBe(2);
+    Log::shouldHaveReceived('warning')
+        ->withArgs(fn (string $message, array $context): bool => str_contains($message, 'session rows of a revoked SSO user were not deleted')
+            && str_contains($message, 'martis.auth.session_guards')
+            && $context['guards'] === ['admin' => 'sqlite|martis_test_guard_users_admins', 'web' => 'sqlite|users'])
+        ->once();
+
+    config()->set('martis.auth.session_guards', []);
+    MartisSso::revokeFor($this->admin->getKey());
+
+    expect(DB::table('sessions')->count())->toBe(0);
+});
+
+it('throws, naming the key, from a revocation when session_guards is unusable', function () {
+    config()->set('martis.auth.session_guards', ['nope']);
+
+    expect(fn () => MartisSso::revokeFor($this->admin->getKey()))
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.session_guards')
+        ->and(DB::table('sessions')->count())->toBe(2);
+});
+
+it('sweeps the demoted user sessions with session_guards', function () {
+    config()->set('martis.authz.revoke_sessions_on_demote', true);
+    config()->set('martis.auth.session_guards', []);
+
+    app(RecordRoleChange::class)->handleRoleDetached((object) ['model' => $this->admin, 'rolesOrIds' => [7]]);
+
+    expect(DB::table('sessions')->count())->toBe(0);
 });

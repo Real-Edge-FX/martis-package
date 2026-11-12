@@ -98,6 +98,9 @@ export const NotFoundPage = R.NotFoundPage
 // extension build does not alias `primereact` / internal component paths.
 export const FieldInput = R.FieldInput
 export const FieldDisplay = R.FieldDisplay
+// Validation error of a custom input (v2.23.0+): `useFieldError(error)` and `<FieldError>`.
+export const FieldError = R.FieldError
+export const useFieldError = R.useFieldError
 export const DrawerShell = R.DrawerShell
 export const Tooltip = R.Tooltip
 // Triggers of the global tooltip that show HTML (v2.4.0+): `htmlTooltip(markup,

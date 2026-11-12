@@ -5,7 +5,7 @@ import { apiPath } from '@/lib/apiPath'
 import { deleteErrorMessage } from '@/lib/deleteError'
 import type { OverrideProps, ResourceRecord, FieldDefinition, PanelDefinition, TabGroupDefinition, SectionDefinition } from '@/types'
 import { FieldDisplay } from '@/components/fields/FieldRenderer'
-import { FieldLabelTooltip } from '@/components/fields/FieldLabelTooltip'
+import { DetailRow } from '@/components/DetailRow'
 import { PanelDisplay } from '@/components/fields/PanelRenderer'
 import { TabsDisplay } from '@/components/fields/TabsRenderer'
 import { SectionDisplay } from '@/components/fields/SectionRenderer'
@@ -145,21 +145,14 @@ export function DrawerDetail(props: OverrideProps) {
             {scalarFields.length > 0 && (
               <dl className="martis-detail-panel is-drawer">
                 {scalarFields.map((field) => (
-                  <div key={field.attribute} className="martis-detail-row">
-                    <dt className="martis-detail-label">
-                      {field.label}
-                      <FieldLabelTooltip text={field.tooltip} />
-                    </dt>
-                    <dd className="martis-detail-value">
-                      <FieldDisplay
-                        field={field}
-                        value={activeRecord![field.attribute]}
-                        resourceKey={resource}
-                        resourceId={relationParent.id}
-                        context="detail"
-                      />
-                    </dd>
-                  </div>
+                  <DetailRow
+                    key={field.attribute}
+                    field={field}
+                    record={activeRecord!}
+                    resourceKey={resource}
+                    resourceId={relationParent.id}
+                    labelTooltip
+                  />
                 ))}
               </dl>
             )}

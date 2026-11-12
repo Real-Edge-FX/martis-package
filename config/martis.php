@@ -593,10 +593,12 @@ return [
     |--------------------------------------------------------------------------
     | Throttling
     |--------------------------------------------------------------------------
-    | Rate limits for Martis routes. Two distinct buckets:
+    | Rate limits for Martis routes. Distinct buckets:
     |   - `api` — protects general authenticated API routes (resource CRUD,
     |     dashboards, metrics). Default 120 req/min is generous because the
     |     SPA is chatty on navigation.
+    |   - `metrics` (optional) — the metric and dashboard read routes, when
+    |     `metrics_max_attempts` is set; they then leave the `api` bucket.
     |   - `login` — brute-force protection on the login form, 2FA challenge,
     |     and API login endpoint. Tight by design (20 req/min) but loose
     |     enough that a typo-prone human doesn't get locked out.
@@ -606,6 +608,19 @@ return [
         'enabled' => env('MARTIS_THROTTLE_ENABLED', true),
         'max_attempts' => (int) env('MARTIS_THROTTLE_MAX', 120),
         'decay_minutes' => (int) env('MARTIS_THROTTLE_DECAY', 1),
+        // A bucket of its own for the metric and dashboard read routes (v2.23.0):
+        // a dashboard of many cards polls often and would use up the `api`
+        // bucket above. Unset (null, the default) keeps those routes in the
+        // `api` bucket. When set they count against this bucket only, never
+        // against the `api` one too, so the rest of the API keeps its full
+        // allowance. `metrics_decay_minutes` defaults to `decay_minutes`.
+        // `enabled` = false disables both buckets. The env values are passed
+        // on as they are: an empty one (`MARTIS_THROTTLE_METRICS_MAX=`) means
+        // unset, and one that is set and is not a positive whole number
+        // throws, naming the key, when the routes are registered (a `(int)`
+        // cast here would turn '' and 'lots' into 0).
+        'metrics_max_attempts' => env('MARTIS_THROTTLE_METRICS_MAX'),
+        'metrics_decay_minutes' => env('MARTIS_THROTTLE_METRICS_DECAY'),
         'login_attempts' => (int) env('MARTIS_LOGIN_THROTTLE_ATTEMPTS', 20),
         'login_minutes' => (int) env('MARTIS_LOGIN_THROTTLE_MINUTES', 1),
         // The per-account limit of the sign-in (v2.4.0), applied by the login
@@ -1248,14 +1263,36 @@ return [
             ],
         ],
 
+        // The guards, besides the Martis guard, that sign in people and write
+        // Laravel's `sessions.user_id` (v2.23.0). Null (default): every
+        // `session` guard of config/auth.php and the app's default guard
+        // count, and when they sign in users of more than one table the
+        // session rows cannot be told apart by id: Martis then neither
+        // deletes them (SSO revocation, `authz.revoke_sessions_on_demote`)
+        // nor lists them (profile Browser sessions). Laravel merges its own
+        // `web` guard (on the `users` provider) into every app, so an
+        // admin-only app that keeps its people in another table reads as
+        // ambiguous although nothing signs in through `web`. Set a list of
+        // guard names, e.g. ['site'], to say which guards really write the
+        // column: the Martis guard is always counted, and the default guard
+        // and the other session guards are not. The list must be COMPLETE: a
+        // guard that signs in people but is left out can make Martis delete,
+        // or list, the session of another person who has the same id in
+        // another table. `[]` means the Martis guard only. A name that is not
+        // in `auth.guards`, a guard whose driver is not `session`, or a value
+        // that is not a list of names, throws,
+        // naming this key, the first time a revocation or the profile reads it.
+        'session_guards' => null,
+
         // Email and password sign-in (v2.21.0). Off, POST /login and
         // POST /api/auth/login refuse every address with a 403 before their
         // controller reads a credential, and the password reset flow
         // (`passwordReset` below) is off with it. For a panel whose people
         // sign in through SSO only. Magic-link sign-in, invitations and
         // registration keep their own switches: an SSO-only panel turns them
-        // off. The login page then shows the SSO buttons only; it still shows
-        // the form on `?password_login=1` (the server decides who may use it).
+        // off. The login page then shows the SSO buttons only; it shows the
+        // form on `?password_login=1` only when `break_glass_emails` holds an
+        // address (v2.23.0; the server decides who may use it).
         'password_login' => [
             'enabled' => env('MARTIS_PASSWORD_LOGIN_ENABLED', true),
             // Addresses (case-insensitive, trimmed) that may still sign in

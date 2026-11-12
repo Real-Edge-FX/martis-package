@@ -78,11 +78,35 @@ class ActionResponse implements \JsonSerializable
     /**
      * Emits $eventName with $data on the SPA's Martis event bus (`martisEventBus`), as Nova's emit() uses `Nova.$emit`.
      *
+     * `$message` replaces the generic success toast the SPA shows after the
+     * event (the event is emitted either way); chain `silent()` for no toast.
+     *
      * @param  array<string, mixed>  $data
      */
-    public static function emit(string $eventName, array $data = []): self
+    public static function emit(string $eventName, array $data = [], ?string $message = null): self
     {
-        return new self(ActionResponseType::Emit, ['event' => $eventName, 'data' => $data]);
+        $payload = ['event' => $eventName, 'data' => $data];
+
+        if ($message !== null) {
+            $payload['message'] = $message;
+        }
+
+        return new self(ActionResponseType::Emit, $payload);
+    }
+
+    /**
+     * Suppresses the SPA's success toast for an `emit()` response. The event
+     * is still emitted and the table still refreshes. Returns a modified copy.
+     *
+     * @throws \InvalidArgumentException when the response is not an `emit()`
+     */
+    public function silent(): self
+    {
+        if ($this->type !== ActionResponseType::Emit) {
+            throw new \InvalidArgumentException('ActionResponse::silent() applies to an emit() response, not "'.$this->type->value.'".');
+        }
+
+        return new self($this->type, [...(array) $this->data, 'silent' => true]);
     }
 
     /**
