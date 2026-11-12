@@ -6,6 +6,7 @@ use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Cookie;
 use Illuminate\Support\Facades\Http;
 use Martis\Auth\GuardCatalog;
 use Martis\Sso\Providers\AzureProvider;
@@ -31,6 +32,7 @@ class SsoCacheStoreUser extends User
 beforeEach(function () {
     config()->set('cache.stores.sso_shared', ['driver' => 'array']);
     config()->set('martis.auth.sso.cache_store', 'sso_shared');
+    config()->set('martis.auth.sso.enabled', true);
     Cache::store('array')->flush();
     Cache::store('sso_shared')->flush();
 });
@@ -59,11 +61,16 @@ it('throws, naming the key, for a cache_store that is not a configured store', f
     expect(fn () => SsoCache::store())->toThrow(InvalidArgumentException::class, 'martis.auth.sso.cache_store');
 })->with([
     'a name that is not in cache.stores' => ['nope'],
-    'an empty string' => [''],
     'a number' => [3],
     'a list' => [['redis']],
     'true' => [true],
 ]);
+
+it('treats an empty or blank cache_store as unset, as env() gives for KEY=', function (string $value) {
+    config()->set('martis.auth.sso.cache_store', $value);
+
+    expect(SsoCache::store())->toBe(Cache::store());
+})->with(['empty' => [''], 'blank' => ['   ']]);
 
 it('records the one-time jti in the configured store and not in the default one', function () {
     $keys = stKeys();
@@ -179,4 +186,108 @@ it('keeps the Azure tenant lookup in the configured store', function () {
     // Asked once: the second answer comes from the configured store.
     $provider->lookup('contoso.onmicrosoft.com');
     Http::assertSentCount(1);
+});
+
+// -----------------------------------------------------------------------------
+// With SSO off, the non-SSO paths never touch the SSO cache (v2.22.0)
+// -----------------------------------------------------------------------------
+
+it('lets password sign-in, sign-out and the plain 401 run on a bad cache_store while SSO is off', function () {
+    config()->set('martis.auth.sso.enabled', false);
+    config()->set('martis.auth.sso.cache_store', 'nope');
+    $user = new SsoCacheStoreUser;
+    $user->forceFill(['id' => 5]);
+
+    $request = Request::create('/x');
+    $request->setLaravelSession(stSession());
+    SsoSession::forget($request, $user);
+    SsoSession::forgetEnded($request);
+
+    expect(SsoSession::endedProvider($request))->toBeNull();
+    $this->getJson('/martis/api/dashboards')->assertUnauthorized();
+});
+
+it('does not recognise an origin cookie while SSO is off, and does while it is on', function () {
+    config()->set('martis.auth.sso.enabled', true);
+    $user = new SsoCacheStoreUser;
+    $user->forceFill(['id' => 5]);
+    $first = Request::create('/x');
+    $first->setLaravelSession(stSession());
+    SsoSession::start($first, $user, 'azure', null, true);
+    $cookie = Cookie::queued(SsoSession::COOKIE);
+
+    $next = Request::create('/x');
+    $next->setLaravelSession(stSession());
+    $next->cookies->set(SsoSession::COOKIE, $cookie->getValue());
+    expect(SsoSession::provider($next, $user))->toBe('azure');
+
+    config()->set('martis.auth.sso.enabled', false);
+    config()->set('martis.auth.sso.cache_store', 'nope');
+    $again = Request::create('/x');
+    $again->setLaravelSession(stSession());
+    $again->cookies->set(SsoSession::COOKIE, $cookie->getValue());
+    expect(SsoSession::provider($again, $user))->toBeNull();
+});
+
+it('still throws, naming the key, on the same paths while SSO is on', function () {
+    config()->set('martis.auth.sso.enabled', true);
+    config()->set('martis.auth.sso.cache_store', 'nope');
+    $user = new SsoCacheStoreUser;
+    $user->forceFill(['id' => 5]);
+    $request = Request::create('/x');
+    $request->setLaravelSession(stSession());
+
+    expect(fn () => SsoSession::forget($request, $user))->toThrow(InvalidArgumentException::class, 'martis.auth.sso.cache_store')
+        ->and(fn () => SsoSession::forgetEnded($request))->toThrow(InvalidArgumentException::class, 'martis.auth.sso.cache_store')
+        ->and(fn () => SsoSession::endedProvider($request))->toThrow(InvalidArgumentException::class, 'martis.auth.sso.cache_store');
+});
+
+// -----------------------------------------------------------------------------
+// A store that cannot hold security state is refused outside the test suite
+// -----------------------------------------------------------------------------
+
+it('refuses an array or null store while SSO is on, naming the key', function (string $driver) {
+    config()->set('cache.stores.sso_weak', ['driver' => $driver]);
+    config()->set('martis.auth.sso.cache_store', 'sso_weak');
+    config()->set('martis.auth.sso.enabled', true);
+    app()['env'] = 'production';
+
+    expect(fn () => SsoCache::store())
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.cache_store')
+        ->and(fn () => SsoCache::store())
+        ->toThrow(InvalidArgumentException::class, $driver);
+
+    app()['env'] = 'testing';
+})->with(['array', 'null']);
+
+it('names cache.default too when cache_store is unset and the default store is weak', function () {
+    config()->set('martis.auth.sso.cache_store', null);
+    config()->set('cache.default', 'array');
+    config()->set('martis.auth.sso.enabled', true);
+    app()['env'] = 'production';
+
+    expect(fn () => SsoCache::store())
+        ->toThrow(InvalidArgumentException::class, 'cache.default')
+        ->and(fn () => SsoCache::store())
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.cache_store');
+
+    app()['env'] = 'testing';
+});
+
+it('accepts a shared store and any store while SSO is off or in the test suite', function () {
+    config()->set('cache.stores.sso_shared_file', ['driver' => 'file', 'path' => sys_get_temp_dir()]);
+    config()->set('martis.auth.sso.cache_store', 'sso_shared_file');
+    config()->set('martis.auth.sso.enabled', true);
+    app()['env'] = 'production';
+    expect(SsoCache::store())->toBeInstanceOf(Repository::class);
+
+    // A weak store with SSO off: nothing to guard.
+    config()->set('martis.auth.sso.cache_store', 'sso_shared');
+    config()->set('martis.auth.sso.enabled', false);
+    expect(SsoCache::store())->toBeInstanceOf(Repository::class);
+
+    // The test suite's own array store, SSO on.
+    app()['env'] = 'testing';
+    config()->set('martis.auth.sso.enabled', true);
+    expect(SsoCache::store())->toBeInstanceOf(Repository::class);
 });

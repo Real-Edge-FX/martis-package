@@ -981,8 +981,9 @@ return [
             // store MUST be shared by every server of the panel, MUST NOT
             // evict early (a store that forgets a `jti` or a revocation
             // reopens a used token or an ended session) and MUST NOT be
-            // flushed on a deploy. A name that is not in `cache.stores`
-            // throws, naming this key.
+            // flushed on a deploy. A name that is not in `cache.stores` throws,
+            // naming this key; so does an `array` or `null` store while SSO is
+            // on (outside tests). Empty = unset. See docs/sso.md.
             'cache_store' => env('MARTIS_SSO_CACHE_STORE'),
 
             'providers' => [

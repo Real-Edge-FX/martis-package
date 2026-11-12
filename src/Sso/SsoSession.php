@@ -310,7 +310,7 @@ final class SsoSession
      */
     public static function endedProvider(Request $request): ?string
     {
-        if (! $request->hasSession()) {
+        if (! SsoCache::enabled() || ! $request->hasSession()) {
             return null;
         }
 
@@ -341,7 +341,7 @@ final class SsoSession
      */
     public static function forgetEnded(Request $request): void
     {
-        if (! $request->hasSession()) {
+        if (! SsoCache::enabled() || ! $request->hasSession()) {
             return;
         }
 
@@ -550,6 +550,11 @@ final class SsoSession
 
     private static function holds(string $userId, string $nonce): bool
     {
+        // SSO off: no origin is recognised (and the cache is not touched).
+        if (! SsoCache::enabled()) {
+            return false;
+        }
+
         $cache = SsoCache::store();
 
         try {
@@ -565,6 +570,10 @@ final class SsoSession
 
     private static function revoke(string $userId, string $nonce): void
     {
+        if (! SsoCache::enabled()) {
+            return;
+        }
+
         $cache = SsoCache::store();
 
         try {
@@ -584,6 +593,10 @@ final class SsoSession
 
     private static function revokeAll(string $userId): void
     {
+        if (! SsoCache::enabled()) {
+            return;
+        }
+
         $cache = SsoCache::store();
 
         try {
