@@ -1432,14 +1432,14 @@ The issue route runs the whole protected stack (signed in, 2FA passed, email ver
 
 ### Issuer audit events (v2.22.0)
 
-The issue route reports what it signs and what it refuses, so panel A can keep an audit trail of who got a token for which panel:
+The issue route reports what it signs and what its controller refuses, so panel A can keep an audit trail of who got a token for which panel:
 
 | Event | Dispatched | Properties |
 |---|---|---|
 | `Martis\Events\SsoTokenIssued` | Once per token signed, before the redirect. The log line `SSO token issued` (info) is unchanged and has the same `request_id`. | `Authenticatable $user`, `string $audience`, `string $requestId` |
-| `Martis\Events\SsoIssueDenied` | Once per refused request, after a warning log line `SSO token issue denied` (`audience`, `user_id`, `reason`, `request_id`). The HTTP answer is the one the route always gave. | `?Authenticatable $user`, `string $audience`, `string $reason`, `string $requestId` |
+| `Martis\Events\SsoIssueDenied` | Once per request the controller refuses (the six reasons below), after a warning log line `SSO token issue denied` (`audience`, `user_id`, `reason`, `request_id`). The HTTP answer is the one the route always gave. | `?Authenticatable $user`, `string $audience`, `string $reason`, `string $requestId` |
 
-The `reason` of `SsoIssueDenied` is one of its constants:
+The `reason` of `SsoIssueDenied` is one of its six constants:
 
 | Reason | Answer | When |
 |---|---|---|
@@ -1448,8 +1448,9 @@ The `reason` of `SsoIssueDenied` is one of its constants:
 | `invalid_state` | 422 | The `state` parameter is missing or not `^[A-Za-z0-9_-]{16,128}$`. |
 | `impersonating` | 403 | An impersonation is active. `user` is the impersonated user, the one the guard holds. |
 | `forbidden` | 403 | The audience's `ability` does not allow the user. |
+| `cannot_sign` | 500 | Signing failed: a user with no email, a `claims` class that throws or answers the wrong shape, an unusable issuer block. The denial is recorded first and then the exception goes on, so the 500 stays and nothing is hidden. |
 
-A **disabled** issuer stays a silent 404: no line, no event. An audience name the route's own shape constraint rejects (more than 64 characters, a character outside letters, digits, `.`, `-`, `_`) never reaches the controller, so it is a plain 404 with no event either. The `audience` of an event or a line is cut to 64 characters and anything but printable ASCII in it becomes `?`: on the unknown-audience path it is whatever the caller put in the URL. `requestId` is the request's `X-Request-Id` (cut to 128 characters), else a UUID, and is the `request_id` of the log line. Nothing of the token or of the caller's `state` is in an event or a line.
+Refusals by the route's **middleware** (not signed in, 2FA not passed, email not verified, the `viewMartis` gate, throttle) happen before the controller and raise no event. A **disabled** issuer stays a silent 404: no line, no event. An audience name the route's own shape constraint rejects (more than 64 characters, a character outside letters, digits, `.`, `-`, `_`) never reaches the controller, so it is a plain 404 with no event either. The `audience` of an event or a line is cut to 64 characters and anything but printable ASCII in it becomes `?`: on the unknown-audience path it is whatever the caller put in the URL. `requestId` is the request's `X-Request-Id`, else a UUID, and is the `request_id` of the log line. The header is the caller's to write, so it is bounded: anything but printable ASCII becomes `?` and at most 128 bytes are kept (the failed-callback line of `SsoFailed` uses the same bound). Listeners run **inside the request**: a throwing listener of `SsoTokenIssued` stops the sign-in (fail closed), and one of `SsoIssueDenied` turns the denial into a 500, so keep them short and let them catch their own failures. Nothing of the token or of the caller's `state` is in an event or a line.
 
 ```php
 use Illuminate\Support\Facades\Event;

@@ -13,7 +13,6 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Martis\Auth\TwoFactorPass;
 use Martis\Events\SsoFailed;
@@ -25,6 +24,7 @@ use Martis\Sso\SsoException;
 use Martis\Sso\SsoIdentity;
 use Martis\Sso\SsoLogRedactor;
 use Martis\Sso\SsoManager;
+use Martis\Sso\SsoRequestId;
 use Martis\Sso\SsoSession;
 use Throwable;
 
@@ -396,12 +396,10 @@ class SsoController extends Controller
      */
     private function recordFailure(Request $request, string $provider, string $reason, ?Throwable $exception, string $message): void
     {
-        $requestId = $request->headers->get('X-Request-Id');
-
         Log::channel(config('logging.default'))->warning('SSO callback failed', [
             'provider' => $provider,
             'reason' => $reason,
-            'request_id' => is_string($requestId) && $requestId !== '' ? mb_substr($requestId, 0, 128) : (string) Str::uuid(),
+            'request_id' => SsoRequestId::from($request),
             'exception' => $exception !== null ? $exception::class : null,
             'error' => SsoLogRedactor::redact($message),
         ]);

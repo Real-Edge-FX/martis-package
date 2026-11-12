@@ -6,7 +6,6 @@ use Illuminate\Auth\MustVerifyEmail as MustVerifyEmailTrait;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Foundation\Auth\User;
-use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -16,11 +15,9 @@ use Illuminate\Support\Facades\Schema;
 use Martis\Auth\TwoFactorPass;
 use Martis\Events\SsoIssueDenied;
 use Martis\Events\SsoTokenIssued;
-use Martis\Http\Controllers\SsoIssuerController;
 use Martis\Sso\SignedToken\PasetoV4Public;
 use Martis\Sso\SignedToken\TokenIssuer;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\HttpKernel\Exception\HttpException;
 
 require_once __DIR__.'/../Support/signed-token.php';
 
@@ -831,31 +828,53 @@ it('does not dispatch for an audience name the route constraint already rejects'
     Event::assertNotDispatched(SsoIssueDenied::class);
 });
 
-it('cuts the audience to 64 characters and keeps printable ASCII only before it reaches a log line or an event', function () {
-    Event::fake([SsoIssueDenied::class]);
+it('cuts a hostile X-Request-Id to printable ASCII and 128 bytes in the event and the line', function () {
+    Event::fake([SsoTokenIssued::class]);
     $lines = stCaptureLog();
 
-    $request = Request::create('/martis/sso/issue/x', 'GET', ['state' => $this->state]);
-    $request->setUserResolver(fn () => $this->user);
-    $hostile = str_repeat('a', 500)."\n\x1b[31mevil\xff";
+    stSignedIn()->withHeaders(['X-Request-Id' => "r\x1b[31m\xff".str_repeat('q', 300)])->get(stIssueUrl())->assertStatus(302);
 
-    try {
-        app(SsoIssuerController::class)->issue($request, $hostile);
-        $this->fail('the unknown audience was not refused');
-    } catch (HttpException $e) {
-        expect($e->getStatusCode())->toBe(404);
-    }
+    Event::assertDispatched(SsoTokenIssued::class, fn (SsoTokenIssued $e) => preg_match('/\A[\x20-\x7E]{1,128}\z/', $e->requestId) === 1 && str_starts_with($e->requestId, 'r?[31m?qqq'));
+    expect($lines[0]['context']['request_id'])->toBe(Event::dispatched(SsoTokenIssued::class)->first()[0]->requestId);
+});
 
-    Event::assertDispatched(SsoIssueDenied::class, fn (SsoIssueDenied $e) => strlen($e->audience) === 64 && $e->audience === str_repeat('a', 64));
-    expect(strlen($lines[0]['context']['audience']))->toBe(64);
+it('dispatches SsoIssueDenied with cannot_sign, logs the denial and keeps the failure, when signing fails', function (Closure $arrange, string $exception) {
+    $arrange($this);
+    Event::fake([SsoTokenIssued::class, SsoIssueDenied::class]);
+    $lines = stCaptureLog();
 
-    $hostile = "a\nb\x1b[31m\xffc";
+    expect(fn () => stSignedIn()->withoutExceptionHandling()->withHeaders(['X-Request-Id' => 'req-sign'])->get(stIssueUrl()))
+        ->toThrow($exception);
+
+    Event::assertNotDispatched(SsoTokenIssued::class);
+    Event::assertDispatchedTimes(SsoIssueDenied::class, 1);
+    Event::assertDispatched(SsoIssueDenied::class, fn (SsoIssueDenied $e) => $e->reason === 'cannot_sign'
+        && $e->audience === 'panel-b' && $e->user?->is($this->user) === true && $e->requestId === 'req-sign');
+    expect($lines)->toHaveCount(1)
+        ->and($lines[0]['level'])->toBe('warning')
+        ->and($lines[0]['context']['reason'])->toBe('cannot_sign')
+        ->and($lines[0]['context']['request_id'])->toBe('req-sign')
+        ->and(json_encode($lines[0]['context']))->not->toContain($this->state);
+})->with([
+    'a user with no email' => [
+        function ($t) {
+            config(['martis.auth.sso.issuer.claims' => StIssuerClaims::class]);
+            StIssuerClaims::$result = ['name' => 'No email', 'email' => ''];
+        },
+        RuntimeException::class,
+    ],
+    'an issuer block that is unusable' => [
+        fn ($t) => config(['martis.auth.sso.issuer.ttl_seconds' => 0]),
+        InvalidArgumentException::class,
+    ],
+]);
+
+it('answers 500 to a failing signature, as before', function () {
+    config(['martis.auth.sso.issuer.claims' => StIssuerClaims::class]);
+    StIssuerClaims::$result = ['name' => 'No email', 'email' => ''];
     Event::fake([SsoIssueDenied::class]);
-    try {
-        app(SsoIssuerController::class)->issue($request, $hostile);
-    } catch (HttpException) {
-    }
-    Event::assertDispatched(SsoIssueDenied::class, fn (SsoIssueDenied $e) => $e->audience === 'a?b?[31m?c');
+
+    stSignedIn()->get(stIssueUrl())->assertStatus(500);
 });
 
 it('puts neither the token nor the state into the issued event or the log line', function () {

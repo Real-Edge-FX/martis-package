@@ -13,9 +13,11 @@ use Illuminate\Foundation\Events\Dispatchable;
  * log line `SSO token issue denied` (same `request_id`) and before the HTTP
  * answer, which does not change. A disabled issuer answers a silent 404 and
  * dispatches nothing; so does an audience name the route's own shape
- * constraint rejects, since that request never reaches the controller.
+ * constraint rejects, and so does every refusal of the route's middleware (not
+ * signed in, 2FA, email verification, the panel gate, throttle): none of those
+ * requests reaches the controller. Listeners run inside the request.
  *
- * `reason` is one of the constants below. Neither a token nor the `state`
+ * `reason` is one of the six constants below. Neither a token nor the `state`
  * is on the event or in the log: nothing was issued, and the state is the
  * caller's secret.
  *
@@ -46,6 +48,9 @@ class SsoIssueDenied
 
     /** The audience's `ability` does not allow this user (403). */
     public const FORBIDDEN = 'forbidden';
+
+    /** Signing failed (a user with no email, a `claims` class that throws, an unusable issuer block): nothing was issued, and the exception goes on as a 500. */
+    public const CANNOT_SIGN = 'cannot_sign';
 
     public function __construct(
         /** The signed-in panel user, when the request had one. */

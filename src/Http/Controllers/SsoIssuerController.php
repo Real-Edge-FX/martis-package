@@ -10,14 +10,15 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Martis\Events\SsoIssueDenied;
 use Martis\Events\SsoTokenIssued;
 use Martis\Impersonation\ImpersonationManager;
 use Martis\Sso\SignedToken\IssuerSettings;
 use Martis\Sso\SignedToken\TokenIssuer;
 use Martis\Sso\SignedToken\Urls;
+use Martis\Sso\SsoRequestId;
 use Martis\Support\TranslatedLine;
+use Throwable;
 
 /**
  * The issuing side of the signed-token SSO (v2.21.0), for the panel whose
@@ -45,12 +46,16 @@ use Martis\Support\TranslatedLine;
  * No token is issued while an impersonation is active (403): the session
  * belongs to the operator, and the token would be the impersonated user's.
  *
- * Audit (v2.22.0): every token signed dispatches {@see SsoTokenIssued} and
- * every refusal after the issuer is known to be on dispatches
- * {@see SsoIssueDenied} (reasons `unknown_audience`, `not_navigation`,
- * `invalid_state`, `impersonating`, `forbidden`) and logs a warning with the
- * same `request_id`. The HTTP answers are unchanged. A disabled issuer stays a
- * silent 404. No token and no `state` goes into an event or a log line.
+ * Audit (v2.22.0): every token signed dispatches {@see SsoTokenIssued}, and
+ * this controller's refusals dispatch {@see SsoIssueDenied} and log a warning
+ * with the same `request_id`, for exactly six reasons: `unknown_audience`,
+ * `not_navigation`, `invalid_state`, `impersonating`, `forbidden` and
+ * `cannot_sign` (signing failed: the exception then goes on, a 500). The HTTP
+ * answers are unchanged. A disabled issuer stays a silent 404. Refusals by the
+ * route's middleware (not signed in, 2FA, email verification, the panel gate,
+ * throttle) happen before this controller and raise no event. No token and no
+ * `state` goes into an event or a log line. The events run inside the
+ * request: a throwing listener of {@see SsoTokenIssued} stops the sign-in.
  *
  * An audience may set an `ability`: only users the gate allows for it get a
  * token (403 otherwise, nothing issued, no redirect).
@@ -65,9 +70,6 @@ class SsoIssuerController extends Controller
     /** Longest audience name (see {@see IssuerSettings::AUDIENCE_PATTERN}) that reaches a log line or an event. */
     private const MAX_AUDIENCE_LENGTH = 64;
 
-    /** Longest `X-Request-Id` kept (same bound as the failed-callback log line). */
-    private const MAX_REQUEST_ID_LENGTH = 128;
-
     public function issue(Request $request, string $audience): RedirectResponse
     {
         // A disabled issuer is a silent 404: no log line, no event, so a
@@ -76,7 +78,7 @@ class SsoIssuerController extends Controller
             abort(404);
         }
 
-        $requestId = $this->requestId($request);
+        $requestId = SsoRequestId::from($request);
         $user = $request->user();
 
         // 404 for an audience that is not one of ours.
@@ -106,7 +108,15 @@ class SsoIssuerController extends Controller
             $this->deny($user, $audience, SsoIssueDenied::IMPERSONATING, $requestId, 403, TranslatedLine::get('martis::messages.sso_issue_impersonating'));
         }
 
-        $issuer = TokenIssuer::fromConfig();
+        // An issuer block that is unusable throws, naming the key. The audit
+        // trail records the denial first, then the exception goes on (500).
+        try {
+            $issuer = TokenIssuer::fromConfig();
+        } catch (Throwable $e) {
+            $this->record($user, $audience, SsoIssueDenied::CANNOT_SIGN, $requestId);
+
+            throw $e;
+        }
 
         // Who may sign in to this audience: any panel user, or only those the
         // gate lets through (an app gate or a permission package's check).
@@ -115,7 +125,15 @@ class SsoIssuerController extends Controller
             $this->deny($user, $audience, SsoIssueDenied::FORBIDDEN, $requestId, 403, TranslatedLine::get('martis::messages.sso_issue_forbidden'));
         }
 
-        $token = $issuer->issue($user, $audience, $state);
+        try {
+            $token = $issuer->issue($user, $audience, $state);
+        } catch (Throwable $e) {
+            // A user with no email, a `claims` class that throws or returns the
+            // wrong shape: nothing was signed. The failure is not hidden (500).
+            $this->record($user, $audience, SsoIssueDenied::CANNOT_SIGN, $requestId);
+
+            throw $e;
+        }
 
         Log::channel(config('logging.default'))->info('SSO token issued', [
             'audience' => $audience,
@@ -138,6 +156,14 @@ class SsoIssuerController extends Controller
      */
     private function deny(?Authenticatable $user, string $audience, string $reason, string $requestId, int $status, ?string $message = null): never
     {
+        $this->record($user, $audience, $reason, $requestId);
+
+        abort($status, $message ?? '');
+    }
+
+    /** The warning line and the {@see SsoIssueDenied} of one refusal, with no answer of their own. */
+    private function record(?Authenticatable $user, string $audience, string $reason, string $requestId): void
+    {
         $audience = $this->boundedAudience($audience);
 
         Log::channel(config('logging.default'))->warning('SSO token issue denied', [
@@ -147,8 +173,6 @@ class SsoIssuerController extends Controller
             'request_id' => $requestId,
         ]);
         SsoIssueDenied::dispatch($user, $audience, $reason, $requestId);
-
-        abort($status, $message ?? '');
     }
 
     /**
@@ -160,13 +184,6 @@ class SsoIssuerController extends Controller
     private function boundedAudience(string $audience): string
     {
         return substr((string) preg_replace('/[^\x20-\x7E]/', '?', substr($audience, 0, self::MAX_AUDIENCE_LENGTH)), 0, self::MAX_AUDIENCE_LENGTH);
-    }
-
-    private function requestId(Request $request): string
-    {
-        $requestId = $request->headers->get('X-Request-Id');
-
-        return is_string($requestId) && $requestId !== '' ? mb_substr($requestId, 0, self::MAX_REQUEST_ID_LENGTH) : (string) Str::uuid();
     }
 
     /**

@@ -156,6 +156,15 @@ it('logs provider, reason, request id, exception class and message with the same
         ]);
 });
 
+it('bounds a hostile request id of the failed-callback line to printable ASCII, 128 bytes', function () {
+    ssoReasonProvider($this->app, new RuntimeException('x'));
+
+    $this->withHeader('X-Request-Id', "id\x1b[31m\xff".str_repeat('z', 300))->get('/martis/sso/azure/callback');
+
+    expect($this->logged[0]['context']['request_id'])->toMatch('/^[\x20-\x7E]{1,128}$/')
+        ->and($this->logged[0]['context']['request_id'])->toStartWith('id?[31m?zzz');
+});
+
 it('generates a request id for the log line when the request carries none', function () {
     ssoReasonProvider($this->app, new RuntimeException('x'));
 
