@@ -104,7 +104,7 @@ final class TokenIssuer
         );
 
         if ($s->environment !== null) {
-            $claims[$s->environmentClaim] = $s->environment;
+            $claims[IssuerSettings::ENVIRONMENT_CLAIM] = $s->environment;
         }
 
         if (! is_string($claims['email'] ?? null) || $claims['email'] === '') {
@@ -175,7 +175,7 @@ final class TokenIssuer
             throw new InvalidArgumentException("The [{$key}] class must return an array of claims, got ".get_debug_type($result).'.');
         }
 
-        $reserved = [...IssuerSettings::RESERVED_CLAIMS, $this->settings->environmentClaim];
+        $reserved = IssuerSettings::RESERVED_CLAIMS;
 
         foreach ($result as $claim => $value) {
             if (! is_string($claim) || $claim === '' || in_array($claim, $reserved, true)) {

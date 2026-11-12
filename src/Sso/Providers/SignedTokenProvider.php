@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use JsonException;
 use Martis\Sso\Contracts\SsoProviderContract;
 use Martis\Sso\SignedToken\ConsumerSettings;
+use Martis\Sso\SignedToken\IssuerSettings;
 use Martis\Sso\SignedToken\ParsedToken;
 use Martis\Sso\SignedToken\PasetoV4Public;
 use Martis\Sso\SignedToken\Reason;
@@ -285,14 +286,14 @@ final class SignedTokenProvider implements SsoProviderContract
     private function checkEnvironment(array $claims, ConsumerSettings $settings): void
     {
         if ($settings->environment === null) {
-            if (array_key_exists($settings->environmentClaim, $claims)) {
+            if (array_key_exists(IssuerSettings::ENVIRONMENT_CLAIM, $claims)) {
                 throw $this->refuse(Reason::ENVIRONMENT, 'the issuer is locked to an environment and this verifier is not: set `environment` in the provider block');
             }
 
             return;
         }
 
-        $this->same($claims[$settings->environmentClaim] ?? null, $settings->environment, Reason::ENVIRONMENT, 'the token is from another environment');
+        $this->same($claims[IssuerSettings::ENVIRONMENT_CLAIM] ?? null, $settings->environment, Reason::ENVIRONMENT, 'the token is from another environment');
     }
 
     /**

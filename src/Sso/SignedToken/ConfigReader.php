@@ -35,15 +35,18 @@ final class ConfigReader
     }
 
     /**
-     * The environment lock is a pair: `environment` names the lock and
-     * `environment_claim` names the claim that carries it (default `env`).
-     * A claim name with no environment is half a lock, which looks configured
-     * and locks nothing, so it is refused (v2.22.0). Set both or neither.
+     * A key that an earlier release read and this one no longer does. Setting
+     * it at all (null counts as unset) throws, naming the key and why, so a
+     * block written for the old release does not run on a silently changed
+     * rule. `environment_claim` is the one so far: since v2.22.0 the claim
+     * that carries the environment is always `env` (a locked issuer and an
+     * unlocked verifier that read different claim names disagreed with no
+     * error at all).
      */
-    public static function assertEnvironmentPair(?string $environment, mixed $claim, string $environmentKey, string $claimKey): void
+    public static function removed(mixed $value, string $key, string $why): void
     {
-        if ($environment === null && $claim !== null) {
-            throw new InvalidArgumentException("The [{$claimKey}] config value is set but [{$environmentKey}] is not: the environment lock needs both. Set [{$environmentKey}] too, or remove [{$claimKey}].");
+        if ($value !== null) {
+            throw new InvalidArgumentException("The [{$key}] config value was removed in v2.22.0: {$why}");
         }
     }
 

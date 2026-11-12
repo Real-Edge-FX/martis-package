@@ -314,19 +314,6 @@ it('refuses a staging token on a production verifier and a token without the env
     expect(stReason(stProvider(), $flow['session'], $production, $flow['state']))->toBe('accepted');
 });
 
-it('reads the environment from environment_claim', function () {
-    stConsumer([$this->keys['public_b64']], 'panel_a', ['environment' => 'production', 'environment_claim' => 'deployment']);
-
-    $flow = stBegin(stProvider());
-    $token = stSign(stClaims($flow['state'], ['deployment' => 'production']), $this->keys['secret']);
-    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe('accepted');
-
-    // The default claim name is not the one this block reads.
-    $flow = stBegin(stProvider());
-    $token = stSign(stClaims($flow['state'], ['env' => 'production']), $this->keys['secret']);
-    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::ENVIRONMENT);
-});
-
 it('refuses a token that carries the environment claim when this verifier has no environment', function () {
     // The issuer is locked to an environment, this verifier is not: half a lock refuses.
     stConsumer([$this->keys['public_b64']]);
@@ -366,19 +353,34 @@ it('says to set environment in the refusal of a locked token at an unlocked veri
         ->toThrow(fn (SsoException $e) => expect($e->getMessage())->toContain('set `environment`'));
 });
 
-it('throws, naming both keys, when environment_claim is set and environment is not', function () {
-    stConsumer([$this->keys['public_b64']], 'panel_a', ['environment_claim' => 'deployment']);
+it('throws, naming the key and saying it was removed, for an environment_claim (the claim is always env)', function (mixed $claim, ?string $environment) {
+    stConsumer([$this->keys['public_b64']], 'panel_a', ['environment_claim' => $claim, 'environment' => $environment]);
 
     expect(fn () => stBegin(stProvider()))
         ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.providers.panel_a.environment_claim')
         ->and(fn () => stBegin(stProvider()))
-        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.providers.panel_a.environment]');
+        ->toThrow(InvalidArgumentException::class, 'removed in v2.22.0');
+})->with([
+    'a custom name, no environment' => ['deployment', null],
+    'a custom name with an environment' => ['deployment', 'production'],
+    'the default name written out' => ['env', 'production'],
+    'an empty string' => ['', null],
+]);
+
+it('locks on the env claim only', function () {
+    stConsumer([$this->keys['public_b64']], 'panel_a', ['environment' => 'production']);
+
+    $flow = stBegin(stProvider());
+    $token = stSign(stClaims($flow['state'], ['deployment' => 'production']), $this->keys['secret']);
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::ENVIRONMENT);
 });
 
-it('accepts environment_claim together with environment', function () {
-    stConsumer([$this->keys['public_b64']], 'panel_a', ['environment' => 'production', 'environment_claim' => 'deployment']);
+it('does not read a claim of another name as an environment', function () {
+    // The environment claim is always env: a token with a claim of another name carries none.
+    $flow = stBegin(stProvider());
+    $token = stSign(stClaims($flow['state'], ['stage' => 'staging']), $this->keys['secret']);
 
-    expect(stBegin(stProvider())['state'])->not->toBe('');
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe('accepted');
 });
 
 it('refuses a state that does not match the callback query, or the claim, or the session', function () {
@@ -739,7 +741,7 @@ it('throws, naming the config key, for a block that is set but unusable', functi
     'negative clock_skew_seconds' => [['clock_skew_seconds' => -1], 'martis.auth.sso.providers.panel_a.clock_skew_seconds'],
     'empty role_claim' => [['role_claim' => ''], 'martis.auth.sso.providers.panel_a.role_claim'],
     'empty environment' => [['environment' => ''], 'martis.auth.sso.providers.panel_a.environment'],
-    'empty environment_claim' => [['environment_claim' => ''], 'martis.auth.sso.providers.panel_a.environment_claim'],
+    'environment_claim (removed)' => [['environment_claim' => 'deployment'], 'martis.auth.sso.providers.panel_a.environment_claim'],
 ]);
 
 it('accepts the numeric strings an env() value gives for the numbers', function () {

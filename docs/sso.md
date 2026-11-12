@@ -1405,9 +1405,10 @@ php artisan martis:sso panel-b --issuer   # adds the audience and the env stubs,
 | `issuer` | This panel's name in the `iss` claim. Panel B's provider block must carry the same string. |
 | `private_key` | Base64 Ed25519 secret key (64 bytes). Read from the environment: no command ever writes it to a file. A key that is not 64 bytes, or whose public half does not match its seed, throws naming this key. |
 | `ttl_seconds` | Token life, 1 to 600 (default 60). |
-| `environment` | Optional. Added to the token as the claim `environment_claim` (default `env`), so a verifier locked to `production` refuses a staging token. The lock is a pair (v2.22.0): panel B must set the same `environment` too, because a token that carries the claim is refused by a verifier with no `environment`. |
-| `role_claim`, `environment_claim` | Optional claim names (defaults `roles` and `env`). Keep them equal to panel B's `role_claim` and `environment_claim`. Setting `environment_claim` while `environment` is not set throws, naming both keys (v2.22.0): it would look like a lock and lock nothing. |
-| `claims` | Optional invokable class, `(Authenticatable $user, string $audience): array`, that adds claims and replaces `email`, `name` and the roles. Use the name of a class or a `[Class::class, 'method']` array, never a closure (`config:cache`). `iss`, `aud`, `sub`, `iat`, `exp`, `jti`, `state`, `email_verified` and the environment claim (`environment_claim`, always, whether or not `environment` is set) cannot be set: the class throws if it tries. |
+| `environment` | Optional. Added to the token as the claim `env`, so a verifier locked to `production` refuses a staging token. The lock is a pair (v2.22.0): panel B must set the same `environment` too, because a token that carries the claim is refused by a verifier with no `environment`. |
+| `role_claim` | Optional claim name for the roles (default `roles`). Keep it equal to panel B's `role_claim`. |
+| `environment_claim` | **Removed in v2.22.0.** The claim that carries the environment is always `env`; a block that still sets the key throws, naming it. With a configurable name, a locked issuer and an unlocked verifier could read different claim names and disagree without any error. |
+| `claims` | Optional invokable class, `(Authenticatable $user, string $audience): array`, that adds claims and replaces `email`, `name` and the roles. Use the name of a class or a `[Class::class, 'method']` array, never a closure (`config:cache`). `iss`, `aud`, `sub`, `iat`, `exp`, `jti`, `state`, `email_verified` and `env` (the environment claim, always, whether or not `environment` is set) cannot be set: the class throws if it tries. |
 | `audiences` | `'<audience>' => ['callback_url' => '...', 'ability' => null]`. `ability` (optional, a non-empty string; anything else throws naming the key) limits who may obtain a token for that audience: the issue route checks `Gate::forUser($user)->allows($ability)`, so an app gate or a Spatie permission name both work. A refusal answers 403 with a translated message, issues nothing and redirects nowhere. Unset, any user who can open the panel gets a token.  The audience is the name panel B uses as its `audience`. A name is 1 to 64 letters, digits, `.`, `-` or `_`, and is not `callback` or `redirect`. |
 
 The claims of the token:
@@ -1488,7 +1489,6 @@ php artisan martis:sso panel-a --driver=signed-token
     'clock_skew_seconds' => 30,
     'role_claim' => 'roles',
     // 'environment' => 'production',   // optional second lock
-    // 'environment_claim' => 'env',
     'identity_match_attribute' => 'external_id',
     // ...the usual role_strategy, auto_create_user, permission_adapter, on_no_role_match keys
 ],
@@ -1506,7 +1506,7 @@ The block may be named anything and there may be several: `driver => 'signed-tok
 | `max_age_seconds` | A token issued longer ago than this (plus the skew) is refused, whatever its `exp` says (default 60). |
 | `clock_skew_seconds` | Clock difference tolerated for `exp` and `iat` (default 30). |
 | `role_claim` | The claim that holds the role names (default `roles`). The roles feed the usual `role_strategy` mapping. |
-| `environment`, `environment_claim` | Optional second lock: only tokens whose `environment_claim` (default `env`) equals `environment` are accepted. With no `environment`, a token that carries the environment claim at all is refused (reason `environment`, the text says to set `environment`): the issuer is locked and this verifier is not. Setting `environment_claim` while `environment` is not set throws, naming both keys (v2.22.0). |
+| `environment` | Optional second lock: only tokens whose `env` claim equals `environment` are accepted. With no `environment`, a token that carries the `env` claim at all is refused (reason `environment`, the text says to set `environment`): the issuer is locked and this verifier is not (v2.22.0). `environment_claim` was removed: setting it throws. |
 
 #### The columns panel B needs
 

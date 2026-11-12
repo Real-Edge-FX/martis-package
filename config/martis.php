@@ -1169,10 +1169,9 @@ return [
                 //     // Second lock (optional): accept only tokens whose claim equals
                 //     // this value, so a staging token never signs in to production.
                 //     // Set it when the issuer sets `environment`: a token that carries
-                //     // the claim is refused by a verifier with none. Naming
-                //     // `environment_claim` without `environment` throws.
+                //     // the `env` claim is refused by a verifier with none. The claim
+                //     // name is always `env` (`environment_claim` was removed in v2.22.0).
                 //     // 'environment' => 'production',
-                //     // 'environment_claim' => 'env',
                 //
                 //     // The user id at the issuer is the stable identity: match by it.
                 //     'identity_match_attribute' => 'external_id',
@@ -1208,12 +1207,11 @@ return [
             |                in the environment only: no command writes it to a file.
             |   ttl_seconds  How long a token lives (1 to 600, default 60). It
             |                is also valid once only, on the other side.
-            |   environment  Optional. Put in the token (claim `environment_claim`,
-            |                default `env`) so a verifier locked to production
-            |                refuses a token from staging. The verifier must set
-            |                its own `environment` too: it refuses a token that
-            |                carries the claim when it has none. `environment_claim`
-            |                without `environment` throws.
+            |   environment  Optional. Put in the token (claim `env`) so a verifier
+            |                locked to production refuses a token from staging.
+            |                The verifier must set its own `environment` too: it
+            |                refuses a token that carries the claim when it has
+            |                none. `environment_claim` was removed in v2.22.0.
             |   claims       Optional invokable class (or [Class::class, 'method'])
             |                `(Authenticatable $user, string $audience): array`
             |                that adds or replaces `email`, `name` and the roles
