@@ -1323,6 +1323,7 @@ The user has no Azure App Role assignment that matches a local role's `azure_gro
 | `resources/js/pages/Login.ssoFlash.test.tsx` | The login page toasts the flashed text once, also on an SSO-only page, and nothing for an empty or non-string value. |
 | `tests/Unit/Sso/SignedToken/UrlsTest.php` | The URL rule of `authorize_url` and `callback_url`: https, or http on `localhost`, `*.localhost`, `*.test`, `127.0.0.1` and `[::1]` only. |
 | `tests/Unit/Sso/SignedToken/PasetoV4PublicTest.php` | The PASETO v4.public codec against the official `4-S-*` and `4-F-*` test vectors, PAE, strict base64url, trailing data, canonical encoding. |
+| `tests/Unit/Sso/SignedToken/JsonObjectKeysTest.php` | The repeated-key scan of v2.23.0: a key repeated at any depth, in an escaped spelling or after a nested value is found, and a repeat inside a string value or across sibling objects is not. |
 | `tests/Feature/SsoSignedTokenProviderTest.php` | Driver resolution by block name, `redirect()`, every refusal with its own reason, key rotation, one-time `jti` (kept past the last accepted second, used up before the state is checked), the state lifetime, the environment lock, `email_verified`, fail-closed cache, config errors. |
 | `tests/Feature/SsoSignedTokenIssuerTest.php` | The issue route (login, 2FA, gate, 404, state, redirect target, headers, Fetch Metadata, impersonation 403), the audit events and the denial log (v2.22.0), `TokenIssuer` claims (`email_verified`, reserved claims) and config errors. |
 | `tests/Feature/SsoSignedTokenEndToEndTest.php` | One app as both panels: issue route, callback, `external_id` linking, role mapping, `SsoFailed`, no token or key in logs, the `jti` as the second lock, a provider name in another letter case (404), an unverified email never adopting a row, the state-fixation replay refused. |
@@ -1579,7 +1580,7 @@ In this order, each refusal with its own reason (they reach the log line and the
 
 | Reason | Refused because |
 |---|---|
-| `malformed` | Not a `v4.public` token: wrong prefix, bad or non-canonical base64url, trailing data, too long, a footer or payload that is not a JSON object, a claim of the wrong type or a time that is not RFC 3339. |
+| `malformed` | Not a `v4.public` token: wrong prefix, bad or non-canonical base64url, trailing data, too long, a footer or payload that is not a JSON object, a footer or payload object that repeats a key at any depth (v2.23.0: `json_decode()` keeps the last of two equal keys, so a repeat would read differently to another parser; compared after decoding, so `"sub"` and `"\u0073ub"` collide; Martis's own tokens never repeat one), a claim of the wrong type or a time that is not RFC 3339. |
 | `bad_signature` | No configured public key verifies the signature (checked before any claim is read). |
 | `missing_claim` | A required claim is missing or empty: `iss`, `aud`, `sub`, `iat`, `exp`, `jti`, `state`, `email`, `email_verified` (a boolean: any other type is `malformed`). |
 | `issuer` | `iss` is not the configured `issuer`. |

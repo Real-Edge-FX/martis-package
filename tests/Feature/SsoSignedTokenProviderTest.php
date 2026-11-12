@@ -738,6 +738,65 @@ it('refuses a footer that is not a JSON object as malformed', function () {
 });
 
 // -----------------------------------------------------------------------------
+// A key repeated in the payload or the footer (v2.23.0): refused as malformed,
+// with a valid signature, so the refusal is the new check and not the signature.
+// -----------------------------------------------------------------------------
+
+/** A token over `$message` (raw JSON text) and `$footer`, signed with the test key. */
+function stSignRaw(string $message, string $secret, ?string $footer = null): string
+{
+    $public = sodium_crypto_sign_publickey_from_secretkey($secret);
+
+    return PasetoV4Public::sign($message, $secret, $footer ?? json_encode(['kid' => PasetoV4Public::keyId($public)], JSON_THROW_ON_ERROR));
+}
+
+it('refuses a payload that repeats a key, with a valid signature, as malformed', function (string $second) {
+    $flow = stBegin(stProvider());
+    $json = json_encode(stClaims($flow['state']), JSON_THROW_ON_ERROR);
+    // Repeat the key at the end, with another value: the last one wins in json_decode().
+    $json = substr($json, 0, -1).','.$second.'}';
+    $token = stSignRaw($json, $this->keys['secret']);
+
+    // Without the repeat the same claims are accepted, so the refusal is the repeat.
+    $good = stBegin(stProvider());
+    $cleanToken = stSign(stClaims($good['state']), $this->keys['secret']);
+    expect(stReason(stProvider(), $good['session'], $cleanToken, $good['state']))->toBe('accepted');
+
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::MALFORMED);
+})->with([
+    'sub' => ['"sub":"7"'],
+    'email' => ['"email":"other@example.com"'],
+    'exp' => ['"exp":"2999-01-01T00:00:00+00:00"'],
+    'a key spelled with an escape' => ['"\u0073ub":"7"'],
+    'a key inside roles' => ['"roles":["X"]'],
+]);
+
+it('refuses a nested repeated key in the payload as malformed', function () {
+    $flow = stBegin(stProvider());
+    $claims = json_encode(stClaims($flow['state'], ['roles' => null]), JSON_THROW_ON_ERROR);
+    $json = substr($claims, 0, -1).',"extra":{"a":1,"a":2}}';
+    $token = stSignRaw($json, $this->keys['secret']);
+
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::MALFORMED);
+});
+
+it('refuses a footer that repeats a key, with a valid signature, as malformed', function () {
+    $flow = stBegin(stProvider());
+    $public = sodium_crypto_sign_publickey_from_secretkey($this->keys['secret']);
+    $kid = PasetoV4Public::keyId($public);
+    $token = stSign(stClaims($flow['state']), $this->keys['secret'], '{"kid":"'.$kid.'","kid":"'.$kid.'"}');
+
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::MALFORMED);
+});
+
+it('does not take a repeated key inside a string value for a repeated key', function () {
+    $flow = stBegin(stProvider());
+    $token = stSign(stClaims($flow['state'], ['name' => '"a":1,"a":2']), $this->keys['secret']);
+
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe('accepted');
+});
+
+// -----------------------------------------------------------------------------
 // Config that is set but unusable throws and names the key
 // -----------------------------------------------------------------------------
 

@@ -12,6 +12,7 @@ use Martis\Http\Middleware\SpendSignedToken;
 use Martis\Sso\Contracts\SsoProviderContract;
 use Martis\Sso\SignedToken\ConsumerSettings;
 use Martis\Sso\SignedToken\IssuerSettings;
+use Martis\Sso\SignedToken\JsonObjectKeys;
 use Martis\Sso\SignedToken\ParsedToken;
 use Martis\Sso\SignedToken\PasetoV4Public;
 use Martis\Sso\SignedToken\Reason;
@@ -234,6 +235,10 @@ final class SignedTokenProvider implements SsoProviderContract
                 throw $this->refuse(Reason::MALFORMED, 'the footer is not a JSON object');
             }
 
+            if (JsonObjectKeys::hasRepeatedKey($parsed->footer)) {
+                throw $this->refuse(Reason::MALFORMED, 'the footer repeats a key');
+            }
+
             $kid = is_string($footer->kid ?? null) ? $footer->kid : null;
         }
 
@@ -265,6 +270,12 @@ final class SignedTokenProvider implements SsoProviderContract
 
         if (! $object instanceof stdClass) {
             throw $this->refuse(Reason::MALFORMED, 'the payload is not a JSON object');
+        }
+
+        // `json_decode()` keeps the last of two equal keys: a payload that
+        // repeats one reads differently to another parser.
+        if (JsonObjectKeys::hasRepeatedKey($parsed->message)) {
+            throw $this->refuse(Reason::MALFORMED, 'a claim is repeated');
         }
 
         /** @var array<string, mixed> $claims */
