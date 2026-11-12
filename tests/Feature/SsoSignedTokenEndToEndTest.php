@@ -247,3 +247,36 @@ it('refuses a token minted for a browser session other than the one that started
     expect(auth()->check())->toBeFalse();
     Event::assertDispatched(SsoFailed::class, fn (SsoFailed $e) => $e->reason === 'state');
 });
+
+it('answers 404 to a callback path in another letter case, so an account is never adopted under defaults', function () {
+    // A local row of panel B that holds the address the issuer signs. The provider is
+    // configured to match by external_id, which refuses this row.
+    $victim = StE2eUser::query()->create([
+        'name' => 'Victim', 'email' => 'remote.person@b.example', 'password' => Hash::make('x'), 'email_verified_at' => now(),
+    ]);
+    MartisSso::resolveRolesUsing(fn (array $external, $user, string $provider) => StE2eRole::query()->whereIn('panel_a_group_name', $external)->get());
+
+    $start = $this->get('/martis/sso/panel_a/redirect');
+    $issue = $this->actingAs($this->issuerUser)
+        ->withSession([TwoFactorPass::SESSION_KEY => (string) $this->issuerUser->getKey()])
+        ->get((string) $start->headers->get('Location'));
+    auth()->logout();
+    $lower = (string) $issue->headers->get('Location');
+    $upper = str_replace('/sso/panel_a/callback', '/sso/PANEL_A/callback', $lower);
+
+    $this->get($upper)->assertNotFound();
+    expect(auth()->check())->toBeFalse()
+        ->and($victim->fresh()->panel_a_external_id)->toBeNull();
+
+    // The canonical path of the same URL is the one that applies the provider's config: the row is refused.
+    $this->get($lower)->assertRedirect(route('martis.login'));
+    expect(auth()->check())->toBeFalse()
+        ->and($victim->fresh()->panel_a_external_id)->toBeNull();
+});
+
+it('answers 404 to the redirect of a provider name in another letter case and starts no flow', function () {
+    $this->get('/martis/sso/Panel_A/redirect')->assertNotFound();
+
+    expect(session('martis_sso_state.panel_a'))->toBeNull()
+        ->and(session('martis_sso_state.Panel_A'))->toBeNull();
+});

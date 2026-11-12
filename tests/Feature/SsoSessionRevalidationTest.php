@@ -880,3 +880,35 @@ it('throws, naming the key, when the class returns something that is not a strin
     expect(fn () => $this->postJson('/martis/api/auth/logout'))
         ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.providers.azure.logout_url');
 });
+
+// ---------------------------------------------------------------------------
+// The provider name of the URL is the canonical one (review H2)
+// ---------------------------------------------------------------------------
+
+it('answers 404 to a provider name in another letter case, on the callback and the redirect, and signs nobody in', function (string $path) {
+    config()->set('martis.auth.sso.providers.azure.remember', false);
+    config()->set('martis.auth.sso.providers.azure.max_session_minutes', 60);
+    MartisSso::resolveRolesUsing(fn (array $external, $user, string $provider) => SsoRevRole::query()->get());
+
+    $this->get('/martis/sso/'.$path)->assertNotFound();
+
+    expect(auth()->check())->toBeFalse()
+        ->and(session(SsoSession::SESSION_KEY))->toBeNull();
+})->with([
+    'callback, upper case' => ['AZURE/callback'],
+    'callback, mixed case' => ['Azure/callback'],
+    'redirect, upper case' => ['AZURE/redirect'],
+    'redirect, mixed case' => ['Azure/redirect'],
+]);
+
+it('still ends the session of the canonical path by max_session_minutes (control of the letter-case refusal)', function () {
+    config()->set('martis.auth.sso.providers.azure.remember', false);
+    config()->set('martis.auth.sso.providers.azure.max_session_minutes', 60);
+    MartisSso::resolveRolesUsing(fn (array $external, $user, string $provider) => SsoRevRole::query()->get());
+
+    $this->get('/martis/sso/azure/callback')->assertRedirect();
+    expect(session(SsoSession::SESSION_KEY))->toBe('azure');
+
+    $this->travel(61)->minutes();
+    $this->getJson('/martis/api/tools')->assertUnauthorized();
+});

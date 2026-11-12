@@ -71,6 +71,8 @@ class SsoController extends Controller
 
     public function redirect(Request $request, string $provider): RedirectResponse
     {
+        $this->requireCanonicalName($provider);
+
         $driver = $this->manager->driver($provider);
 
         if ($driver === null) {
@@ -84,6 +86,8 @@ class SsoController extends Controller
 
     public function callback(Request $request, string $provider): RedirectResponse
     {
+        $this->requireCanonicalName($provider);
+
         $driver = $this->manager->driver($provider);
 
         if ($driver === null) {
@@ -154,6 +158,21 @@ class SsoController extends Controller
         $redirectTo = (string) (config("martis.auth.sso.providers.{$provider}.redirect_to") ?? '/'.config('martis.path', 'martis'));
 
         return redirect()->intended($redirectTo);
+    }
+
+    /**
+     * The provider name of the URL must be its lower-case form, the one every
+     * config key is read under. The manager lowercases the name to find the
+     * driver, so a path in another letter case would resolve the driver and
+     * then read every setting of the sign-in (identity matching, role mapping,
+     * `max_session_minutes`, the federated logout) under a key that does not
+     * exist, and run it on the defaults. 404 before anything else happens.
+     */
+    private function requireCanonicalName(string $provider): void
+    {
+        if ($provider !== strtolower($provider)) {
+            abort(404);
+        }
     }
 
     /**
