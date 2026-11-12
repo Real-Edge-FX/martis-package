@@ -35,7 +35,7 @@ use Throwable;
  *                      claims (issuer, audience, expiry, age, environment: a token that carries the
  *                      environment claim needs a verifier with `environment`), the
  *                      one-time `jti`, and last the state (session = query =
- *                      claim, pulled once, at most ten minutes old)
+ *                      claim, pulled when checked, at most ten minutes old)
  *
  * Every refusal is an {@see SsoException} with its own
  * {@see Reason}. The jti is recorded after the checks that say the token is
@@ -46,6 +46,11 @@ use Throwable;
  * nothing to replay from a log. A token refused earlier (bad signature, other
  * audience, expired, other environment) is not recorded. Nothing about the
  * token or a key goes into a message.
+ *
+ * The callback route runs everything up to and including the `jti` record in a
+ * middleware ahead of the throttle ({@see spend()}), so a throttled (429)
+ * callback has still used the token up; {@see resolveIdentity()} then only
+ * checks the state. Used alone, it does every step itself.
  *
  * Not OIDC and not OAuth: a Martis panel signs for its own users, and one
  * other panel trusts that key. For a third-party IdP use the Socialite
@@ -348,8 +353,8 @@ final class SignedTokenProvider implements SsoProviderContract
     }
 
     /**
-     * The state the flow put in the session (pulled: it is good for one
-     * attempt, and for {@see self::STATE_LIFETIME_SECONDS} from the redirect),
+     * The state the flow put in the session (pulled when it is checked: it
+     * is good for one check, whatever its outcome, and for {@see self::STATE_LIFETIME_SECONDS} from the redirect),
      * the callback's `state` query parameter and the token's `state` claim
      * must all be the same. A state kept without its creation time (a flow
      * started before v2.22.0) is refused: the person starts over.
