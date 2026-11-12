@@ -240,7 +240,7 @@ Since v2.21.0 `window.MartisConfig.auth` is an allow-list, built by `Martis\Auth
 
 | Key | Published | Not published (stopped in v2.21.0) |
 |---|---|---|
-| `sso` | `enabled`, and for each **enabled** provider only `enabled`, `label`, `icon` plus the keys of its `public` array (see [SSO](sso.md#what-reaches-the-browser-v2210)). No provider while `sso.enabled` is `false`. | Disabled providers; every other key of a provider block (`driver`, `scopes`, `role_*`, `tenant`, `resource_id`, `logout_url`, `redirect_to`, `remember`, …). |
+| `sso` | `enabled`, and for each **enabled** provider only `enabled`, `label` (a string or a `locale => string` map, v2.22.0), `icon` plus the keys of its `public` array (see [SSO](sso.md#what-reaches-the-browser-v2210)). No provider while `sso.enabled` is `false`. | Disabled providers; every other key of a provider block (`driver`, `scopes`, `role_*`, `tenant`, `resource_id`, `logout_url`, `redirect_to`, `remember`, …). |
 | `passwordReset` | `enabled` (off while password sign-in is), `url` | `broker` |
 | `registration` | `enabled`, `url` | `default_role` |
 | `controls` | `theme`, `locale` | |
@@ -295,7 +295,7 @@ An empty `enabled` (a `MARTIS_PASSWORD_LOGIN_ENABLED=` line with no value, which
 
 ## Landing page after sign-in (v2.21.0)
 
-The SPA signs in with a JSON request. Up to v2.20.x it then opened the dashboard whatever Laravel's `url.intended` held; the form sign-in (`POST /login`) always redirected to it. Since v2.21.0 the response that completes a JSON sign-in carries `intended_url`, the page asked for before the visitor was sent to the login page, and the SPA opens it with a full page load. The signed-token issuer (`GET /{martis}/sso/issue/{audience}`, see [SSO](sso.md#18-signed-token-between-two-martis-apps-v2210)) depends on it.
+The SPA signs in with a JSON request. Up to v2.20.x it then opened the dashboard whatever Laravel's `url.intended` held; the form sign-in (`POST /login`) always redirected to it. Since v2.21.0 the response that completes a JSON sign-in carries `intended_url`, the page asked for before the visitor was sent to the login page, and the SPA opens it with a full page load. The signed-token issuer (`GET /{martis}/sso/issue/{audience}`, see [SSO](sso.md#18-signed-token-between-two-martis-apps-v2210-v2220)) depends on it.
 
 - The value is pulled from the session once, so it is used once.
 - Only a same-origin URL whose path is under the Martis base path (`martis.path`) is returned, as a path and query without the fragment. An absolute foreign or protocol-relative URL, another path, a dot segment, an encoded slash or dot, a backslash or a control character is dropped and forgotten, and the SPA checks the value again before it navigates (same rule as the SSO re-authentication redirect). Anything dropped leaves today's behaviour: the dashboard.

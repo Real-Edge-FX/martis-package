@@ -32,7 +32,7 @@ final class Reason
     /** `iat` is in the future beyond the clock skew. */
     public const NOT_YET_VALID = 'not_yet_valid';
 
-    /** The token comes from another environment than the one this verifier is locked to. */
+    /** The token comes from another environment than the one this verifier is locked to, or carries an environment while this verifier is not locked (set `environment`). */
     public const ENVIRONMENT = 'environment';
 
     /** The `state` of the browser session, the callback URL and the token do not all match. */

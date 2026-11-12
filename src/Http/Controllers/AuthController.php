@@ -27,6 +27,7 @@ use Martis\Contracts\ResetsUserPasswords;
 use Martis\Contracts\SendsPasswordResetLinks;
 use Martis\Http\Controllers\Concerns\AuthenticatesWithRememberMe;
 use Martis\Profile\TwoFactorService;
+use Martis\Sso\SsoCache;
 use Martis\Sso\SsoSession;
 use Martis\Sso\SsoSessionEnforcer;
 use Martis\Support\Initials;
@@ -140,6 +141,10 @@ class AuthController extends MartisController
     public function login(Request $request): JsonResponse
     {
         $request->validate($this->loginRules());
+
+        // An unusable SSO cache store fails here, before the guard signs the
+        // user in (the sign-in drops the SSO origin of the session after it).
+        SsoCache::assertUsable();
 
         /** @var string|null $guardName */
         $guardName = config('martis.guard');

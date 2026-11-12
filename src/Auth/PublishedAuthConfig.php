@@ -105,17 +105,57 @@ final class PublishedAuthConfig
 
             // After the listed keys: `public` can add to the entry, never
             // change what the button strip reads.
-            $label = $block['label'] ?? null;
             $icon = $block['icon'] ?? null;
 
             $entry['enabled'] = true;
-            $entry['label'] = is_string($label) ? $label : null;
+            $entry['label'] = self::label($name, $block['label'] ?? null);
             $entry['icon'] = is_string($icon) ? $icon : null;
 
             $published[$name] = $entry;
         }
 
         return $published;
+    }
+
+    /**
+     * The button label of a provider (v2.22.0): a string, or a map of
+     * `locale => string` the SPA resolves against the active language the way
+     * it resolves `copy` (`resolveCopyValue()` in `authCopy.ts`). Unset (null)
+     * or an empty map is `null`, and the button reads "Continue with <name>".
+     * A value that is set but is neither throws, naming the key: it used to be
+     * dropped without a word.
+     *
+     * @return string|array<string, string>|null
+     */
+    private static function label(string $provider, mixed $label): string|array|null
+    {
+        if ($label === null || is_string($label)) {
+            return $label;
+        }
+
+        if (is_array($label)) {
+            if ($label === []) {
+                return null;
+            }
+
+            $isMap = true;
+            foreach ($label as $locale => $text) {
+                if (! is_string($locale) || ! is_string($text)) {
+                    $isMap = false;
+                    break;
+                }
+            }
+
+            if ($isMap) {
+                /** @var array<string, string> $label */
+                return $label;
+            }
+        }
+
+        throw AuthConfigurationException::forKey(
+            "martis.auth.sso.providers.{$provider}.label",
+            'must be a string or a map of locale => string.',
+        );
     }
 
     /**

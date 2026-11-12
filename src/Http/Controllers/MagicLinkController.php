@@ -23,6 +23,7 @@ use Martis\Auth\GuardCatalog;
 use Martis\Auth\MagicLinkNotification;
 use Martis\Auth\MagicLinkService;
 use Martis\Auth\TwoFactorPass;
+use Martis\Sso\SsoCache;
 use Martis\Sso\SsoSession;
 use Martis\Support\TokenLink;
 
@@ -162,6 +163,11 @@ class MagicLinkController
         if (! (bool) config('martis.auth.magic_link.enabled', false)) {
             return response()->json(['message' => __('martis::auth.magic_link_disabled')], 404);
         }
+
+        // An unusable SSO cache store fails before the link is spent and
+        // before the guard signs anyone in (the sign-in drops the SSO origin
+        // of the session after it).
+        SsoCache::assertUsable();
 
         [$email, $token] = $this->linkParameters($request->input('email', ''), $request->input('token', ''));
 

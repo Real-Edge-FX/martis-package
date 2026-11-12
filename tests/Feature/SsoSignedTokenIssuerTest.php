@@ -7,11 +7,14 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Martis\Auth\TwoFactorPass;
+use Martis\Events\SsoIssueDenied;
+use Martis\Events\SsoTokenIssued;
 use Martis\Sso\SignedToken\PasetoV4Public;
 use Martis\Sso\SignedToken\TokenIssuer;
 use Psr\Log\LoggerInterface;
@@ -382,11 +385,6 @@ it('adds the environment claim when the issuer is locked to one', function () {
     $token = TokenIssuer::fromConfig()->issue($this->user, 'panel-b', $this->state);
     $claims = json_decode(PasetoV4Public::parse($token)->message, true, 8, JSON_THROW_ON_ERROR);
     expect($claims['env'])->toBe('staging');
-
-    config(['martis.auth.sso.issuer.environment_claim' => 'deployment']);
-    $token = TokenIssuer::fromConfig()->issue($this->user, 'panel-b', $this->state);
-    $claims = json_decode(PasetoV4Public::parse($token)->message, true, 8, JSON_THROW_ON_ERROR);
-    expect($claims['deployment'])->toBe('staging')->and($claims)->not->toHaveKey('env');
 });
 
 it('writes the roles under role_claim', function () {
@@ -522,6 +520,7 @@ it('answers 403 with a translated message, issues nothing and redirects nowhere 
     $logger->shouldReceive('info')->andReturnUsing(function (string $message) use ($logged) {
         $logged[] = $message;
     });
+    $logger->shouldReceive('warning')->once();
     Log::shouldReceive('channel')->andReturn($logger);
 
     $response = stSignedIn()->get(stIssueUrl());
@@ -579,6 +578,7 @@ it('answers 403 with a translated message and issues nothing while an impersonat
     $logger->shouldReceive('info')->andReturnUsing(function (string $message) use ($logged) {
         $logged[] = $message;
     });
+    $logger->shouldReceive('warning')->once();
     Log::shouldReceive('channel')->andReturn($logger);
 
     $response = stImpersonating($this->user, $bob)->get(stIssueUrl());
@@ -645,13 +645,291 @@ it('does not let a claims class set email_verified', function () {
 // The environment claim is the issuer's alone (review D4)
 // -----------------------------------------------------------------------------
 
-it('reserves the environment claim even when the issuer sets no environment', function (?string $claimName) {
+it('reserves the environment claim even when the issuer sets no environment', function () {
     config(['martis.auth.sso.issuer.claims' => StIssuerClaims::class, 'martis.auth.sso.issuer.environment' => null]);
-    if ($claimName !== null) {
-        config(['martis.auth.sso.issuer.environment_claim' => $claimName]);
-    }
-    StIssuerClaims::$result = [$claimName ?? 'env' => 'production'];
+    StIssuerClaims::$result = ['env' => 'production'];
 
     expect(fn () => TokenIssuer::fromConfig()->issue($this->user, 'panel-b', $this->state))
         ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.issuer.claims');
-})->with(['the default name' => [null], 'a custom name' => ['deployment']]);
+});
+
+it('throws, naming the key and saying it was removed, for an environment_claim (the claim is always env)', function (?string $environment) {
+    config(['martis.auth.sso.issuer.environment' => $environment, 'martis.auth.sso.issuer.environment_claim' => 'deployment']);
+
+    expect(fn () => TokenIssuer::fromConfig())
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.issuer.environment_claim')
+        ->and(fn () => TokenIssuer::fromConfig())
+        ->toThrow(InvalidArgumentException::class, 'removed in v2.22.0');
+})->with(['no environment' => [null], 'an environment' => ['staging']]);
+
+it('accepts an unset environment_claim, with or without an environment', function () {
+    config(['martis.auth.sso.issuer.environment' => 'staging', 'martis.auth.sso.issuer.environment_claim' => null]);
+    expect(TokenIssuer::fromConfig())->toBeInstanceOf(TokenIssuer::class);
+
+    config(['martis.auth.sso.issuer.environment' => null]);
+    expect(TokenIssuer::fromConfig())->toBeInstanceOf(TokenIssuer::class);
+});
+
+// -----------------------------------------------------------------------------
+// Audit events and the denial log (v2.22.0)
+// -----------------------------------------------------------------------------
+
+/**
+ * Capture the lines of the default channel's logger: [level, message, context].
+ */
+function stCaptureLog(): ArrayObject
+{
+    $lines = new ArrayObject;
+    $logger = Mockery::mock(LoggerInterface::class);
+    foreach (['info', 'warning'] as $level) {
+        $logger->shouldReceive($level)->andReturnUsing(function (string $message, array $context = []) use ($lines, $level) {
+            $lines[] = ['level' => $level, 'message' => $message, 'context' => $context];
+        });
+    }
+    Log::shouldReceive('channel')->andReturn($logger);
+
+    return $lines;
+}
+
+it('dispatches SsoTokenIssued with the user, the audience and the request id of the log line', function () {
+    Event::fake([SsoTokenIssued::class, SsoIssueDenied::class]);
+    $lines = stCaptureLog();
+
+    $response = stSignedIn()->withHeaders(['X-Request-Id' => 'req-123'])->get(stIssueUrl());
+    $response->assertStatus(302);
+
+    Event::assertDispatched(SsoTokenIssued::class, fn (SsoTokenIssued $e) => $e->user->is($this->user)
+        && $e->audience === 'panel-b'
+        && $e->requestId === 'req-123');
+    Event::assertNotDispatched(SsoIssueDenied::class);
+    expect($lines)->toHaveCount(1)
+        ->and($lines[0]['level'])->toBe('info')
+        ->and($lines[0]['message'])->toBe('SSO token issued')
+        ->and($lines[0]['context']['request_id'])->toBe('req-123');
+});
+
+it('generates a request id when the request has none, the same one for the event and the line', function () {
+    Event::fake([SsoTokenIssued::class]);
+    $lines = stCaptureLog();
+
+    stSignedIn()->get(stIssueUrl())->assertStatus(302);
+
+    Event::assertDispatched(SsoTokenIssued::class, fn (SsoTokenIssued $e) => $e->requestId === $lines[0]['context']['request_id']
+        && preg_match('/\A[0-9a-f-]{36}\z/', $e->requestId) === 1);
+});
+
+it('cuts a long X-Request-Id to 128 characters in the event and the line', function () {
+    Event::fake([SsoTokenIssued::class]);
+    $lines = stCaptureLog();
+
+    stSignedIn()->withHeaders(['X-Request-Id' => str_repeat('r', 300)])->get(stIssueUrl())->assertStatus(302);
+
+    Event::assertDispatched(SsoTokenIssued::class, fn (SsoTokenIssued $e) => strlen($e->requestId) === 128);
+    expect(strlen($lines[0]['context']['request_id']))->toBe(128);
+});
+
+it('dispatches SsoIssueDenied and logs a warning for each reason, with the answer unchanged', function (
+    Closure $arrange,
+    int $status,
+    string $reason,
+) {
+    Event::fake([SsoTokenIssued::class, SsoIssueDenied::class]);
+    $lines = stCaptureLog();
+
+    $response = $arrange($this);
+    expect($response->status())->toBe($status);
+
+    Event::assertNotDispatched(SsoTokenIssued::class);
+    Event::assertDispatchedTimes(SsoIssueDenied::class, 1);
+    Event::assertDispatched(SsoIssueDenied::class, function (SsoIssueDenied $e) use ($reason, $lines) {
+        return $e->reason === $reason
+            && $e->audience === ($reason === SsoIssueDenied::UNKNOWN_AUDIENCE ? 'nobody' : 'panel-b')
+            && ($reason === SsoIssueDenied::IMPERSONATING || $e->user?->is($this->user) === true)
+            && $e->requestId === 'req-deny'
+            && $lines[0]['context']['request_id'] === $e->requestId;
+    });
+
+    expect($lines)->toHaveCount(1)
+        ->and($lines[0]['level'])->toBe('warning')
+        ->and($lines[0]['message'])->toBe('SSO token issue denied')
+        ->and($lines[0]['context']['reason'])->toBe($reason)
+        ->and($lines[0]['context']['user_id'])->not->toBeNull();
+    // Nothing of a token or of the caller's state goes into the log line.
+    expect(json_encode($lines[0]['context']))->not->toContain($this->state)->not->toContain('token');
+})->with([
+    'unknown_audience' => [
+        fn ($t) => stSignedIn()->withHeaders(['X-Request-Id' => 'req-deny'])->get(stIssueUrl('nobody')),
+        404,
+        SsoIssueDenied::UNKNOWN_AUDIENCE,
+    ],
+    'not_navigation' => [
+        fn ($t) => stSignedIn()->withHeaders(['X-Request-Id' => 'req-deny', 'Sec-Fetch-Mode' => 'cors', 'Sec-Fetch-Dest' => 'empty'])->get(stIssueUrl()),
+        403,
+        SsoIssueDenied::NOT_NAVIGATION,
+    ],
+    'invalid_state' => [
+        fn ($t) => stSignedIn()->withHeaders(['X-Request-Id' => 'req-deny'])->get(stIssueUrl('panel-b', 'short')),
+        422,
+        SsoIssueDenied::INVALID_STATE,
+    ],
+    'forbidden' => [
+        function ($t) {
+            config(['martis.auth.sso.issuer.audiences.panel-b.ability' => 'sign-in-to-b']);
+            Gate::define('sign-in-to-b', fn () => false);
+
+            return stSignedIn()->withHeaders(['X-Request-Id' => 'req-deny'])->get(stIssueUrl());
+        },
+        403,
+        SsoIssueDenied::FORBIDDEN,
+    ],
+    'impersonating' => [
+        function ($t) {
+            $bob = StIssuerUser::query()->create(['name' => 'Bob', 'email' => 'bob@a.example', 'password' => Hash::make('x'), 'email_verified_at' => now()]);
+
+            return stImpersonating($t->user, $bob)->withHeaders(['X-Request-Id' => 'req-deny'])->get(stIssueUrl());
+        },
+        403,
+        SsoIssueDenied::IMPERSONATING,
+    ],
+]);
+
+it('names the impersonated user, the one the guard holds, in the denial of an impersonation', function () {
+    $bob = StIssuerUser::query()->create(['name' => 'Bob', 'email' => 'bob@a.example', 'password' => Hash::make('x'), 'email_verified_at' => now()]);
+    Event::fake([SsoIssueDenied::class]);
+    stCaptureLog();
+
+    stImpersonating($this->user, $bob)->get(stIssueUrl())->assertForbidden();
+
+    Event::assertDispatched(SsoIssueDenied::class, fn (SsoIssueDenied $e) => $e->reason === 'impersonating' && $e->user?->is($bob) === true);
+});
+
+it('stays silent for a disabled issuer: a 404, no event and no log line', function () {
+    config(['martis.auth.sso.issuer.enabled' => false]);
+    Event::fake([SsoTokenIssued::class, SsoIssueDenied::class]);
+    $logger = Mockery::mock(LoggerInterface::class);
+    $logger->shouldNotReceive('info');
+    $logger->shouldNotReceive('warning');
+    Log::shouldReceive('channel')->andReturn($logger);
+
+    stSignedIn()->get(stIssueUrl('nobody'))->assertNotFound();
+    stSignedIn()->get(stIssueUrl())->assertNotFound();
+
+    Event::assertNotDispatched(SsoIssueDenied::class);
+    Event::assertNotDispatched(SsoTokenIssued::class);
+});
+
+it('does not dispatch for an audience name the route constraint already rejects', function () {
+    Event::fake([SsoIssueDenied::class]);
+
+    // The SPA fallback answers it, never the issuer controller.
+    $response = stSignedIn()->get('/martis/sso/issue/'.str_repeat('a', 65).'?state='.$this->state);
+    expect((string) $response->headers->get('Location'))->not->toContain('token=');
+
+    Event::assertNotDispatched(SsoIssueDenied::class);
+});
+
+it('cuts a hostile X-Request-Id to printable ASCII and 128 bytes in the event and the line', function () {
+    Event::fake([SsoTokenIssued::class]);
+    $lines = stCaptureLog();
+
+    stSignedIn()->withHeaders(['X-Request-Id' => "r\x1b[31m\xff".str_repeat('q', 300)])->get(stIssueUrl())->assertStatus(302);
+
+    Event::assertDispatched(SsoTokenIssued::class, fn (SsoTokenIssued $e) => preg_match('/\A[\x20-\x7E]{1,128}\z/', $e->requestId) === 1 && str_starts_with($e->requestId, 'r?[31m?qqq'));
+    expect($lines[0]['context']['request_id'])->toBe(Event::dispatched(SsoTokenIssued::class)->first()[0]->requestId);
+});
+
+it('dispatches SsoIssueDenied with cannot_sign, logs the denial and keeps the failure, when signing fails', function (Closure $arrange, string $exception) {
+    $arrange($this);
+    Event::fake([SsoTokenIssued::class, SsoIssueDenied::class]);
+    $lines = stCaptureLog();
+
+    expect(fn () => stSignedIn()->withoutExceptionHandling()->withHeaders(['X-Request-Id' => 'req-sign'])->get(stIssueUrl()))
+        ->toThrow($exception);
+
+    Event::assertNotDispatched(SsoTokenIssued::class);
+    Event::assertDispatchedTimes(SsoIssueDenied::class, 1);
+    Event::assertDispatched(SsoIssueDenied::class, fn (SsoIssueDenied $e) => $e->reason === 'cannot_sign'
+        && $e->audience === 'panel-b' && $e->user?->is($this->user) === true && $e->requestId === 'req-sign');
+    expect($lines)->toHaveCount(1)
+        ->and($lines[0]['level'])->toBe('warning')
+        ->and($lines[0]['context']['reason'])->toBe('cannot_sign')
+        ->and($lines[0]['context']['request_id'])->toBe('req-sign')
+        ->and(json_encode($lines[0]['context']))->not->toContain($this->state);
+})->with([
+    'a user with no email' => [
+        function ($t) {
+            config(['martis.auth.sso.issuer.claims' => StIssuerClaims::class]);
+            StIssuerClaims::$result = ['name' => 'No email', 'email' => ''];
+        },
+        RuntimeException::class,
+    ],
+    'an issuer block that is unusable' => [
+        fn ($t) => config(['martis.auth.sso.issuer.ttl_seconds' => 0]),
+        InvalidArgumentException::class,
+    ],
+]);
+
+it('answers 500 to a failing signature, as before', function () {
+    config(['martis.auth.sso.issuer.claims' => StIssuerClaims::class]);
+    StIssuerClaims::$result = ['name' => 'No email', 'email' => ''];
+    Event::fake([SsoIssueDenied::class]);
+
+    stSignedIn()->get(stIssueUrl())->assertStatus(500);
+});
+
+it('puts neither the token nor the state into the issued event or the log line', function () {
+    Event::fake([SsoTokenIssued::class]);
+    $lines = stCaptureLog();
+
+    $location = (string) stSignedIn()->get(stIssueUrl())->headers->get('Location');
+    parse_str((string) parse_url($location, PHP_URL_QUERY), $query);
+
+    $dump = json_encode([$lines->getArrayCopy()], JSON_THROW_ON_ERROR);
+    expect($dump)->not->toContain($query['token'])->not->toContain($this->state);
+    Event::assertDispatched(SsoTokenIssued::class, function (SsoTokenIssued $e) use ($query) {
+        $dump = json_encode(['audience' => $e->audience, 'request_id' => $e->requestId]);
+
+        return ! str_contains($dump, $query['token']) && ! str_contains($dump, $this->state);
+    });
+});
+
+// -----------------------------------------------------------------------------
+// The state never reaches a stack trace (#[\SensitiveParameter], v2.22.0)
+// -----------------------------------------------------------------------------
+
+it('keeps the state out of the trace of an exception thrown through issue()', function () {
+    config(['martis.auth.sso.issuer.claims' => StIssuerClaims::class]);
+    StIssuerClaims::$result = ['name' => 'No email', 'email' => ''];
+    $state = 'SECRETSTATE0123456789abcdef';
+    $previous = ini_set('zend.exception_ignore_args', '0');
+
+    try {
+        TokenIssuer::fromConfig()->issue($this->user, 'panel-b', $state);
+        $this->fail('signing did not fail');
+    } catch (RuntimeException $e) {
+        $trace = $e->getTraceAsString();
+    } finally {
+        ini_set('zend.exception_ignore_args', $previous === false ? '1' : $previous);
+    }
+
+    expect($trace)->not->toContain('SECRETSTATE')->and($trace)->toContain('SensitiveParameterValue');
+});
+
+it('keeps the state out of the logged trace of the cannot_sign failure', function () {
+    config(['martis.auth.sso.issuer.claims' => StIssuerClaims::class]);
+    StIssuerClaims::$result = ['name' => 'No email', 'email' => ''];
+    $previous = ini_set('zend.exception_ignore_args', '0');
+    Event::fake([SsoIssueDenied::class]);
+    stCaptureLog();
+    $trace = null;
+
+    try {
+        stSignedIn()->withoutExceptionHandling()->get(stIssueUrl('panel-b', 'SECRETSTATE0123456789abcdef'));
+    } catch (RuntimeException $e) {
+        $trace = $e->getTraceAsString();
+    } finally {
+        ini_set('zend.exception_ignore_args', $previous === false ? '1' : $previous);
+    }
+
+    expect($trace)->not->toBeNull()->and($trace)->not->toContain('SECRETSTATE');
+});

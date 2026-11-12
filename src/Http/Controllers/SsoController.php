@@ -13,18 +13,19 @@ use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Martis\Auth\TwoFactorPass;
 use Martis\Events\SsoFailed;
 use Martis\Events\SsoLoggedIn;
 use Martis\Sso\IdentityResolver;
+use Martis\Sso\Providers\SignedTokenProvider;
 use Martis\Sso\RoleMapper;
 use Martis\Sso\SsoDenial;
 use Martis\Sso\SsoException;
 use Martis\Sso\SsoIdentity;
 use Martis\Sso\SsoLogRedactor;
 use Martis\Sso\SsoManager;
+use Martis\Sso\SsoRequestId;
 use Martis\Sso\SsoSession;
 use Throwable;
 
@@ -113,7 +114,17 @@ class SsoController extends Controller
 
         try {
             $identity = $driver->resolveIdentity($request);
+        } catch (SsoException $e) {
+            return $this->refuse($request, $provider, $e);
         } catch (Throwable $e) {
+            // The signed-token provider refuses only with an SsoException:
+            // anything else is its configuration (a key of the block, the
+            // cache store) or its environment (ext-sodium), and is loud, like
+            // the limits check above, never a refusal of the visitor.
+            if ($driver instanceof SignedTokenProvider) {
+                throw $e;
+            }
+
             return $this->refuse($request, $provider, $e);
         }
 
@@ -396,12 +407,10 @@ class SsoController extends Controller
      */
     private function recordFailure(Request $request, string $provider, string $reason, ?Throwable $exception, string $message): void
     {
-        $requestId = $request->headers->get('X-Request-Id');
-
         Log::channel(config('logging.default'))->warning('SSO callback failed', [
             'provider' => $provider,
             'reason' => $reason,
-            'request_id' => is_string($requestId) && $requestId !== '' ? mb_substr($requestId, 0, 128) : (string) Str::uuid(),
+            'request_id' => SsoRequestId::from($request),
             'exception' => $exception !== null ? $exception::class : null,
             'error' => SsoLogRedactor::redact($message),
         ]);

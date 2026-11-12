@@ -27,7 +27,7 @@ This document is the long-form reference. For a 30-second TL;DR see the **Quick 
 15. [Security considerations](#15-security-considerations)
 16. [Troubleshooting](#16-troubleshooting)
 17. [Test coverage](#17-test-coverage)
-18. [Signed token between two Martis apps (v2.21.0)](#18-signed-token-between-two-martis-apps-v2210)
+18. [Signed token between two Martis apps (v2.21.0, v2.22.0)](#18-signed-token-between-two-martis-apps-v2210-v2220)
 
 ---
 
@@ -323,6 +323,10 @@ The **Continue with Microsoft** button is there. Click → Azure consent screen 
     'sso' => [
         'enabled' => env('MARTIS_SSO_ENABLED', false),
 
+        // v2.22.0: the cache store of everything SSO keeps in a cache.
+        // Null = the default store. See "The cache store" below.
+        'cache_store' => env('MARTIS_SSO_CACHE_STORE'),
+
         'providers' => [
             'azure' => [
                 // Master gate per provider.
@@ -412,6 +416,20 @@ The **Continue with Microsoft** button is there. Click → Azure consent screen 
 ],
 ```
 
+### The cache store (v2.22.0)
+
+`martis.auth.sso.cache_store` (env `MARTIS_SSO_CACHE_STORE`) names the Laravel cache store, from `cache.stores`, that holds everything the SSO subsystem keeps in a cache: the signed token's one-time `jti` ([section 18](#18-signed-token-between-two-martis-apps-v2210-v2220)), the revocation time and the origin nonces ([Ending an SSO session](#ending-an-sso-session-age-revocation-revalidation-v2210)), the ended-session markers, and the Azure tenant lookup. Unset (`null`, the default) it is the application's default store, as before.
+
+The store is **security state**, so it must be shared by every server of the panel (Redis, database or Memcached; `file` is per host), must not evict early, and must not be flushed on a deploy: a store that forgets a `jti` reopens a used token, and one that forgets a revocation reopens an ended session. Naming a store of its own keeps a `cache:clear` or a short-lived default store from touching them.
+
+How the value is read, and what is refused (v2.22.0):
+
+- An **empty or blank** value is unset (what `env()` gives for `MARTIS_SSO_CACHE_STORE=`), so it is the default store.
+- With **SSO on** (`martis.auth.sso.enabled`), a name that is not a string or is not in `cache.stores` throws an `InvalidArgumentException` naming `martis.auth.sso.cache_store`, at the first use. That first use is not only the SSO callback: every sign-in (password, magic link, invitation) and sign-out drops the SSO origin of the session, and the plain 401 of an unauthenticated request reads the ended-session marker, so they throw too. A sign-in path checks the store **before** the guard signs anyone in (and before a magic link or an invitation is spent): it answers the error with nobody authenticated. Sign-out throws after the session has already ended. A typo is loud on purpose, instead of being read as a cache outage.
+- With **SSO off** the paths every panel runs (password sign-in, sign-out, the plain 401) never touch the SSO cache, so a mistake in this key cannot lock out a panel that does not use SSO.
+- With SSO on and outside the test suite, a store that uses the `array` driver (per process) or the `null` driver (holds nothing) is refused with an exception naming `martis.auth.sso.cache_store` (and `cache.default` when the key is unset and the default store is the weak one): replay protection would otherwise be void with no error. In the test suite (`app()->runningUnitTests()`) it is accepted, so an app's own tests keep using the `array` store.
+- **Changing the store on a running panel orphans what the old one held**: the revocation times of `revokeFor()` (a user revoked a moment ago can use an older session again), the origin nonces (remembered SSO sessions lose their SSO origin) and the one-time `jti` records (a token issued just before the change can be used once more, within its short life). Change it at a quiet moment, and run `MartisSso::revokeFor()` again for anyone revoked recently.
+
 ### What reaches the browser (v2.21.0)
 
 The login page is public, so `window.MartisConfig.auth.sso` carries only what the button strip needs: `enabled`, and for each **enabled** provider `enabled`, `label` and `icon`. A disabled provider is not published, and nothing else of a provider block is (role maps, `tenant`, `resource_id`, `scopes`, `logout_url`, columns). An app whose custom login component (see [Overrides](overrides.md)) needs more lists the keys in an optional `public` array of the block:
@@ -486,7 +504,7 @@ Every refusal of the callback (the IdP call failed, the account may not be adopt
 | `not_provisioned` | No local user, and `auto_create_user` is off (or the user resolver returned `null`). |
 | `no_role_match` | No role maps and `on_no_role_match` denies (also when a `callable` hook returned a redirect: the person is not signed in, the hook decides where they go). |
 
-The log line (`SSO callback failed`, on the default log channel) carries `provider`, `reason`, `request_id` (the request's `X-Request-Id` header, else a UUID generated for this line), `exception` (the class name) and `error` (the message). The message is **redacted** first: HTTP client exceptions embed the request URL and the response body, so the values of `code`, `state`, `token`, `id_token`, `access_token`, `refresh_token`, `client_secret`, `code_verifier`, `client_assertion`, `assertion`, `SAMLResponse`, `SAMLRequest`, `password`, `id_token_hint` and `private_key` are replaced with `[redacted]` whether they appear as query pairs or JSON pairs, and so is a `Bearer` credential.
+The log line (`SSO callback failed`, on the default log channel) carries `provider`, `reason`, `request_id` (the request's `X-Request-Id` header, else a UUID generated for this line; since v2.22.0 anything but printable ASCII in the header becomes `?` and at most 128 bytes are kept), `exception` (the class name) and `error` (the message). The message is **redacted** first: HTTP client exceptions embed the request URL and the response body, so the values of `code`, `state`, `token`, `id_token`, `access_token`, `refresh_token`, `client_secret`, `code_verifier`, `client_assertion`, `assertion`, `SAMLResponse`, `SAMLRequest`, `password`, `id_token_hint` and `private_key` are replaced with `[redacted]` whether they appear as query pairs or JSON pairs, and so is a `Bearer` credential.
 
 A refusal never becomes a 500 page: whatever the user step, the role sync or an `afterLogin` hook throws (an `InvalidArgumentException` from a hook included) is logged through the redactor, dispatched as `SsoFailed` with reason `unknown`, and shown as the generic text; nobody is signed in. The one exception is a **configuration error** of the user or role step (an `InvalidArgumentException` naming the key, such as an unsupported `on_no_role_match`): that is thrown, so a typo is loud.
 
@@ -560,7 +578,7 @@ MartisSso::revokeFor($user->getKey());
 2. It drops every SSO-origin nonce of the user and cycles the user's remember token, so no remember cookie or SSO origin cookie signs them back in.
 3. On the **`database` session driver** it also deletes the user's rows of the `sessions` table. That ends **every** session of the user, including ones opened with a password, a magic link or an invitation, which the middleware cannot tell apart from the rest. The rows are matched by `sessions.user_id`; when the app's session guards sign in users of more than one table that column cannot be attributed to one person, so the rows are left alone (a warning is logged) and only the SSO sessions end, through step 1.
 
-A sign-in after the revocation works normally: its sign-in time is later. That includes the one the middleware's redirect starts: while the person's session at the IdP (or, with the [signed token](#18-signed-token-between-two-martis-apps-v2210), at the issuing panel) is alive they are signed in again at once, so a revocation that must hold is done at the IdP (or the issuing panel) as well, and `revokeFor()` on one panel never ends the sessions of another. The times are whole seconds, so a sign-in in the very second of the revocation counts as revoked.
+A sign-in after the revocation works normally: its sign-in time is later. That includes the one the middleware's redirect starts: while the person's session at the IdP (or, with the [signed token](#18-signed-token-between-two-martis-apps-v2210-v2220), at the issuing panel) is alive they are signed in again at once, so a revocation that must hold is done at the IdP (or the issuing panel) as well, and `revokeFor()` on one panel never ends the sessions of another. The times are whole seconds, so a sign-in in the very second of the revocation counts as revoked.
 
 A cache that cannot be **read** while the middleware looks for the revocation is reported and treated as "revoked" (fail closed: the session ends and the person signs in again). Because the revocation read runs on every SSO request, a cache outage ends every SSO session, fresh sign-ins included (sign in, the next request ends it, and so on) until the cache is back: that is the price of a revocation that cannot be skipped. A cache that cannot be **written** makes `revokeFor()` throw a `RuntimeException`, so a revocation that did not stick never looks as if it had. While an impersonation is active the session belongs to the operator who signed in through SSO, so the checks run against the operator.
 
@@ -868,12 +886,13 @@ Hooks compose with each other AND with config — you can override `resolveUserU
 
 ### Events (v2.21.0)
 
-Two events complement the hooks. Listen with `Event::listen()` or a subscriber:
+Two events complement the hooks, and the issuing side of the [signed token](#issuer-audit-events-v2220) has two of its own. Listen with `Event::listen()` or a subscriber:
 
 | Event | Dispatched | Properties |
 |---|---|---|
 | `Martis\Events\SsoLoggedIn` | Exactly once per successful sign-in, after `Auth::login()` and after the SSO session marker is set (the `afterLogin` hooks run before the sign-in). | `Authenticatable $user`, `SsoIdentity $identity`, `string $provider` |
 | `Martis\Events\SsoFailed` | Once per refused callback, after the log line and after any provisioning was rolled back. See [Failed sign-ins](#failed-sign-ins-reason-log-and-event-v2210). | `string $provider`, `string $reason`, `?Throwable $exception` |
+| `Martis\Events\SsoTokenIssued`, `Martis\Events\SsoIssueDenied` (v2.22.0) | The signed-token issuer signed a token, or refused to. See [Issuer audit events](#issuer-audit-events-v2220). | `Authenticatable $user`, `string $audience`, `string $requestId` (and `string $reason` on the denial; its `user` may be `null`) |
 
 ---
 
@@ -888,7 +907,7 @@ Both routes register only when `auth.sso.enabled = true`. They're unauthenticate
 
 The `provider` segment is **whatever the user registered** — `azure`, `google`, `github`, `okta`, custom names. Routes only resolve if the provider is registered AND enabled. The segment must be the provider's **lower-case** name, exactly as its config key is spelled: `/sso/AZURE/callback` answers **404** (v2.21.0). The name used to be lowercased only to find the driver, so a path in another letter case ran the sign-in with every other setting of the provider (identity matching, role mapping, session limits, federated logout) read under a key that does not exist, that is, on the defaults.
 
-A third route belongs to the issuing side of the [signed token](#18-signed-token-between-two-martis-apps-v2210) (v2.21.0). It is always registered, runs the full protected stack, and answers 404 while `auth.sso.issuer.enabled` is false:
+A third route belongs to the issuing side of the [signed token](#18-signed-token-between-two-martis-apps-v2210-v2220) (v2.21.0). It is always registered, runs the full protected stack, and answers 404 while `auth.sso.issuer.enabled` is false:
 
 | Method | Path | Description |
 |---|---|---|
@@ -1048,6 +1067,22 @@ The Login page reads `auth.sso.providers` and renders one button per enabled pro
 ```
 
 Result: three buttons stacked above the email/password form. Click → `/sso/{name}/redirect`.
+
+#### A translated button label (v2.22.0)
+
+`label` is a string, or a map of `locale => string` that the login page resolves against the active language the way it resolves [`auth.copy`](authentication.md#customising-the-auth-copy) values: the exact locale (`pt_PT`), then its prefix (`pt`), then `en`, then the first non-empty entry. The button follows the language picker without a reload.
+
+```php
+'azure' => [
+    'enabled' => true,
+    'label' => [
+        'en' => 'Continue with Microsoft',
+        'pt_PT' => 'Continuar com a Microsoft',
+    ],
+],
+```
+
+Unset (`null`), an empty string, an empty map or a map with no usable entry, the button reads "Continue with `<provider name>`" from the bundled translation. A `label` that is set but is neither a string nor a map of strings (a number, a list, a map with a non-string value) throws an exception naming `martis.auth.sso.providers.{provider}.label` when the login page is built; before v2.22.0 it was dropped without a word. The label of a provider that is not enabled is not read.
 
 When `auth.sso.enabled = false`, no buttons render and no routes register.
 
@@ -1286,9 +1321,10 @@ The user has no Azure App Role assignment that matches a local role's `azure_gro
 | `resources/js/pages/Login.ssoFlash.test.tsx` | The login page toasts the flashed text once, also on an SSO-only page, and nothing for an empty or non-string value. |
 | `tests/Unit/Sso/SignedToken/UrlsTest.php` | The URL rule of `authorize_url` and `callback_url`: https, or http on `localhost`, `*.localhost`, `*.test`, `127.0.0.1` and `[::1]` only. |
 | `tests/Unit/Sso/SignedToken/PasetoV4PublicTest.php` | The PASETO v4.public codec against the official `4-S-*` and `4-F-*` test vectors, PAE, strict base64url, trailing data, canonical encoding. |
-| `tests/Feature/SsoSignedTokenProviderTest.php` | Driver resolution by block name, `redirect()`, every refusal with its own reason, key rotation, one-time `jti` (kept past the last accepted second), `email_verified`, fail-closed cache, config errors. |
-| `tests/Feature/SsoSignedTokenIssuerTest.php` | The issue route (login, 2FA, gate, 404, state, redirect target, headers, Fetch Metadata, impersonation 403), `TokenIssuer` claims (`email_verified`, reserved claims) and config errors. |
-| `tests/Feature/SsoSignedTokenEndToEndTest.php` | One app as both panels: issue route, callback, `external_id` linking, role mapping, `SsoFailed`, no token or key in logs, the `jti` as the second lock, a provider name in another letter case (404), an unverified email never adopting a row. |
+| `tests/Feature/SsoSignedTokenProviderTest.php` | Driver resolution by block name, `redirect()`, every refusal with its own reason, key rotation, one-time `jti` (kept past the last accepted second, used up before the state is checked), the state lifetime, the environment lock, `email_verified`, fail-closed cache, config errors. |
+| `tests/Feature/SsoSignedTokenIssuerTest.php` | The issue route (login, 2FA, gate, 404, state, redirect target, headers, Fetch Metadata, impersonation 403), the audit events and the denial log (v2.22.0), `TokenIssuer` claims (`email_verified`, reserved claims) and config errors. |
+| `tests/Feature/SsoSignedTokenEndToEndTest.php` | One app as both panels: issue route, callback, `external_id` linking, role mapping, `SsoFailed`, no token or key in logs, the `jti` as the second lock, a provider name in another letter case (404), an unverified email never adopting a row, the state-fixation replay refused. |
+| `tests/Feature/SsoCacheStoreTest.php` | `auth.sso.cache_store` (v2.22.0): the `jti`, the revocation, the origin nonce, the ended marker and the Azure tenant lookup land in the configured store and not in the default one; an unknown or unusable name throws naming the key. |
 | `tests/Feature/SsoSignedTokenCommandsTest.php` | `martis:sso:keys` (never writes), `martis:sso --driver=signed-token` and `--issuer`. |
 | `tests/Feature/SsoMakeCommandTest.php` | Generator idempotency: composer skip, config-block insert, env stub, listener register, Spatie publish, migration publish, role-mapping prompt. |
 
@@ -1311,7 +1347,7 @@ The counts grow with each release — see CI output for the live total.
 
 ---
 
-## 18. Signed token between two Martis apps (v2.21.0)
+## 18. Signed token between two Martis apps (v2.21.0, v2.22.0)
 
 Panel B signs its users in through panel A, when both are Martis apps, with one redirect and a short-lived, one-time token that panel A signs with a private key and panel B verifies with the matching public key. No OAuth server, no client secret, no new table.
 
@@ -1333,7 +1369,7 @@ The token is a [PASETO](https://paseto.io) `v4.public` token (Ed25519): `v4.publ
     |<-------------------------------------------------------------|
     |                      302 callback_url?token&state             |
     |--------------------->|  GET /martis/sso/panel_a/callback      |
-    |                      | verify signature, claims, state, jti   |
+    |                      | verify signature, claims, jti, state   |
     |                      | find or create the local user, sign in |
 ```
 
@@ -1377,9 +1413,10 @@ php artisan martis:sso panel-b --issuer   # adds the audience and the env stubs,
 | `issuer` | This panel's name in the `iss` claim. Panel B's provider block must carry the same string. |
 | `private_key` | Base64 Ed25519 secret key (64 bytes). Read from the environment: no command ever writes it to a file. A key that is not 64 bytes, or whose public half does not match its seed, throws naming this key. |
 | `ttl_seconds` | Token life, 1 to 600 (default 60). |
-| `environment` | Optional. Added to the token as the claim `environment_claim` (default `env`), so a verifier locked to `production` refuses a staging token. |
-| `role_claim`, `environment_claim` | Optional claim names (defaults `roles` and `env`). Keep them equal to panel B's `role_claim` and `environment_claim`. |
-| `claims` | Optional invokable class, `(Authenticatable $user, string $audience): array`, that adds claims and replaces `email`, `name` and the roles. Use the name of a class or a `[Class::class, 'method']` array, never a closure (`config:cache`). `iss`, `aud`, `sub`, `iat`, `exp`, `jti`, `state`, `email_verified` and the environment claim (`environment_claim`, always, whether or not `environment` is set) cannot be set: the class throws if it tries. |
+| `environment` | Optional. Added to the token as the claim `env`, so a verifier locked to `production` refuses a staging token. The lock is a pair (v2.22.0): panel B must set the same `environment` too, because a token that carries the claim is refused by a verifier with no `environment`. |
+| `role_claim` | Optional claim name for the roles (default `roles`). Keep it equal to panel B's `role_claim`. |
+| `environment_claim` | **Removed in v2.22.0.** The claim that carries the environment is always `env`; a block that still sets the key throws, naming it. With a configurable name, a locked issuer and an unlocked verifier could read different claim names and disagree without any error. |
+| `claims` | Optional invokable class, `(Authenticatable $user, string $audience): array`, that adds claims and replaces `email`, `name` and the roles. Use the name of a class or a `[Class::class, 'method']` array, never a closure (`config:cache`). `iss`, `aud`, `sub`, `iat`, `exp`, `jti`, `state`, `email_verified` and `env` (the environment claim, always, whether or not `environment` is set) cannot be set: the class throws if it tries. |
 | `audiences` | `'<audience>' => ['callback_url' => '...', 'ability' => null]`. `ability` (optional, a non-empty string; anything else throws naming the key) limits who may obtain a token for that audience: the issue route checks `Gate::forUser($user)->allows($ability)`, so an app gate or a Spatie permission name both work. A refusal answers 403 with a translated message, issues nothing and redirects nowhere. Unset, any user who can open the panel gets a token.  The audience is the name panel B uses as its `audience`. A name is 1 to 64 letters, digits, `.`, `-` or `_`, and is not `callback` or `redirect`. |
 
 The claims of the token:
@@ -1399,7 +1436,47 @@ The claims of the token:
 
 `Martis\Sso\SignedToken\TokenIssuer::fromConfig()->issue($user, $audience, $state)` issues the same token from your own code.
 
-The issue route runs the whole protected stack (signed in, 2FA passed, email verified when required, the `viewMartis` gate) and then the audience's `ability`, when it sets one. While an **impersonation** is active it answers 403 with a translated message and issues nothing: the guard then holds the impersonated user, and a token for them would open a full session at the other panel with no impersonation marker and none of its limits, which that panel's admins never granted the operator. It redirects **only** to the `callback_url` of the audience, never to a URL from the request, with `token` and `state` appended. A `callback_url` must be an absolute `https` URL without credentials or a fragment (`http` is accepted for `localhost`, `*.localhost`, `*.test`, `127.0.0.1` and `[::1]` hosts, so two apps on loopback ports work locally; no other loopback address, such as `127.0.0.2`); anything else throws naming the key. The response carries `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. When the browser sends Fetch Metadata the request must be a top-level navigation (`Sec-Fetch-Mode: navigate` and `Sec-Fetch-Dest: document`): an XHR, an iframe or an image is refused with 403, so another site cannot make a signed-in browser fetch a token. The `state` parameter is required (`^[A-Za-z0-9_-]{16,128}$`, else 422). One audit line is logged per token (audience and user id, never the token).
+The issue route runs the whole protected stack (signed in, 2FA passed, email verified when required, the `viewMartis` gate) and then the audience's `ability`, when it sets one. While an **impersonation** is active it answers 403 with a translated message and issues nothing: the guard then holds the impersonated user, and a token for them would open a full session at the other panel with no impersonation marker and none of its limits, which that panel's admins never granted the operator. It redirects **only** to the `callback_url` of the audience, never to a URL from the request, with `token` and `state` appended. A `callback_url` must be an absolute `https` URL without credentials or a fragment (`http` is accepted for `localhost`, `*.localhost`, `*.test`, `127.0.0.1` and `[::1]` hosts, so two apps on loopback ports work locally; no other loopback address, such as `127.0.0.2`); anything else throws naming the key. The response carries `Cache-Control: no-store` and `Referrer-Policy: no-referrer`. When the browser sends Fetch Metadata the request must be a top-level navigation (`Sec-Fetch-Mode: navigate` and `Sec-Fetch-Dest: document`): an XHR, an iframe or an image is refused with 403, so another site cannot make a signed-in browser fetch a token. The `state` parameter is required (`^[A-Za-z0-9_-]{16,128}$`, else 422). One audit line is logged per token (audience and user id, never the token), and since v2.22.0 every token and every refusal is also an event: see [Issuer audit events](#issuer-audit-events-v2220).
+
+### Issuer audit events (v2.22.0)
+
+The issue route reports what it signs and what its controller refuses, so panel A can keep an audit trail of who got a token for which panel:
+
+| Event | Dispatched | Properties |
+|---|---|---|
+| `Martis\Events\SsoTokenIssued` | Once per token signed, before the redirect. The log line `SSO token issued` (info) is unchanged and has the same `request_id`. | `Authenticatable $user`, `string $audience`, `string $requestId` |
+| `Martis\Events\SsoIssueDenied` | Once per request the controller refuses (the six reasons below), after a warning log line `SSO token issue denied` (`audience`, `user_id`, `reason`, `request_id`). The HTTP answer is the one the route always gave. | `?Authenticatable $user`, `string $audience`, `string $reason`, `string $requestId` |
+
+The `reason` of `SsoIssueDenied` is one of its six constants:
+
+| Reason | Answer | When |
+|---|---|---|
+| `unknown_audience` | 404 | The issuer is on and the audience in the URL is not one of `audiences`. |
+| `not_navigation` | 403 | The browser's Fetch Metadata says the request is not a top-level navigation (an XHR, an iframe, an image). |
+| `invalid_state` | 422 | The `state` parameter is missing or not `^[A-Za-z0-9_-]{16,128}$`. |
+| `impersonating` | 403 | An impersonation is active. `user` is the impersonated user, the one the guard holds. |
+| `forbidden` | 403 | The audience's `ability` does not allow the user. |
+| `cannot_sign` | 500 | Signing failed: a user with no email, a `claims` class that throws or answers the wrong shape, an unusable issuer block. The denial is recorded first and then the exception goes on, so the 500 stays and nothing is hidden. |
+
+Refusals by the route's **middleware** (not signed in, 2FA not passed, email not verified, the `viewMartis` gate, throttle) happen before the controller and raise no event. A **disabled** issuer stays a silent 404: no line, no event. An audience name the route's own shape constraint rejects (more than 64 characters, a character outside letters, digits, `.`, `-`, `_`) never matches the issue route, so it never reaches the controller: the panel's catch-all route answers it with the SPA shell (a 200 page, not a 404), and no event is raised. Only a name of a valid shape that is not configured is a 404 with `unknown_audience`. The `audience` of an event or a line is cut to 64 characters and anything but printable ASCII in it becomes `?`: on the unknown-audience path it is whatever the caller put in the URL. `requestId` is the request's `X-Request-Id`, else a UUID, and is the `request_id` of the log line. The header is the caller's to write, so it is bounded: anything but printable ASCII becomes `?` and at most 128 bytes are kept (the failed-callback line of `SsoFailed` uses the same bound). Listeners run **inside the request**: a throwing listener of `SsoTokenIssued` stops the sign-in (fail closed), and one of `SsoIssueDenied` turns the denial into a 500, so keep them short and let them catch their own failures. Nothing of the token or of the caller's `state` is in an event or a line. The same holds for a stack trace of the signed-token classes: the `state`, the token, the message and the secret key are `#[\SensitiveParameter]` parameters, so PHP prints `SensitiveParameterValue` in their place even with `zend.exception_ignore_args` off (the development default), including in the trace Laravel logs for a `cannot_sign` 500. That covers the package's own frames; the arguments of your own `claims` class, listener or middleware are yours to mark.
+
+```php
+use Illuminate\Support\Facades\Event;
+use Martis\Events\SsoIssueDenied;
+use Martis\Events\SsoTokenIssued;
+
+Event::listen(SsoTokenIssued::class, function (SsoTokenIssued $event) {
+    AuditLog::record('sso.issued', $event->user, ['audience' => $event->audience, 'request_id' => $event->requestId]);
+});
+
+Event::listen(SsoIssueDenied::class, function (SsoIssueDenied $event) {
+    AuditLog::record('sso.issue_denied', $event->user, [
+        'audience' => $event->audience,
+        'reason' => $event->reason,
+        'request_id' => $event->requestId,
+    ]);
+});
+```
 
 ### 3. Panel B: the provider block
 
@@ -1421,7 +1498,6 @@ php artisan martis:sso panel-a --driver=signed-token
     'clock_skew_seconds' => 30,
     'role_claim' => 'roles',
     // 'environment' => 'production',   // optional second lock
-    // 'environment_claim' => 'env',
     'identity_match_attribute' => 'external_id',
     // ...the usual role_strategy, auto_create_user, permission_adapter, on_no_role_match keys
 ],
@@ -1439,7 +1515,7 @@ The block may be named anything and there may be several: `driver => 'signed-tok
 | `max_age_seconds` | A token issued longer ago than this (plus the skew) is refused, whatever its `exp` says (default 60). |
 | `clock_skew_seconds` | Clock difference tolerated for `exp` and `iat` (default 30). |
 | `role_claim` | The claim that holds the role names (default `roles`). The roles feed the usual `role_strategy` mapping. |
-| `environment`, `environment_claim` | Optional second lock: only tokens whose `environment_claim` (default `env`) equals `environment` are accepted. |
+| `environment` | Optional second lock: only tokens whose `env` claim equals `environment` are accepted. With no `environment`, a token that carries the `env` claim at all is refused (reason `environment`, the text says to set `environment`): the issuer is locked and this verifier is not (v2.22.0). `environment_claim` was removed: setting it throws. |
 
 #### The columns panel B needs
 
@@ -1485,23 +1561,31 @@ In this order, each refusal with its own reason (they reach the log line and the
 | `audience` | `aud` is not the configured `audience`. |
 | `expired` | `exp` has passed beyond the skew, or `iat` is older than `max_age_seconds` plus the skew. |
 | `not_yet_valid` | `iat` is in the future beyond the skew. |
-| `environment` | The verifier has an `environment` and the token's claim differs or is absent. |
-| `state` | The state in the browser's session (taken out of it once, whatever the outcome), the `state` of the callback URL and the `state` claim are not all the same. |
+| `environment` | The verifier has an `environment` and the token's claim differs or is absent; or the verifier has none and the token carries the environment claim (the issuer is locked, this side is not: set `environment`). |
 | `replayed` | The `jti` was already used. |
 | `replay_store` | The cache failed while recording the `jti`: the token is refused, never let through. |
+| `state` | The state in the browser's session (taken out of the session when the state is checked, once, whatever the outcome of the check: a callback refused earlier, for a token problem or a used `jti`, leaves it where it is; and no older than 10 minutes since the redirect: v2.22.0, a fixed limit with no config key, so a sign-in slower than that starts over), the `state` of the callback URL and the `state` claim are not all the same. |
 
-The `jti` is recorded last (`Cache::add`, kept until the token could not be accepted any more), so a token the verifier rejected for any other reason is not used up. Comparisons of the issuer, audience, environment and state are constant time.
+The `jti` is recorded (`Cache::add`, kept until the token could not be accepted any more) **before** the state is checked (v2.22.0), so a token that is validly signed, in time and meant for this audience is used up by its first arrival, whatever the state of that request. A token refused earlier in the list (bad signature, another audience or issuer, expired, another environment) is not recorded. Comparisons of the issuer, audience, environment and state are constant time.
 
 ### Security notes
 
 - **The token is in a URL.** It travels in the query string of the callback URL, so it can reach browser history and any access log of that path. The mitigations are built in: it lives 60 seconds by default, is accepted once, is bound to the browser session that started the flow through `state`, and the issue response says `Referrer-Policy: no-referrer` and `Cache-Control: no-store`. Operators should keep query strings out of the access logs of `/{martis}/sso/{provider}/callback` (nginx: log `$uri` instead of `$request_uri` for that location; most load balancers can drop the query from the logged path).
-- **The cache must be shared.** The one-time `jti` lives in Laravel's default cache store. With several servers use a shared store (Redis, database, Memcached); the `array` and `file` stores are per process or per host, and the `null` store refuses every sign-in as `replayed`. A cache that is down refuses sign-ins.
+- **A configuration error is a 500, not a refusal.** An unusable key of the provider block (`environment_claim` set, a bad `public_keys` entry, an empty `issuer`), an unusable `martis.auth.sso.cache_store` or a missing `ext-sodium` throws on the callback, naming the key, the same whether the callback's middleware ran or the provider is used alone; only a token or state the verifier refuses (the reasons above) is a refusal with the generic text on the login page and an `SsoFailed` event.
+- **The first arrival of a valid token spends it.** A request that reaches the callback with a signature-valid, in-time token uses it up, whatever it is and whether or not a session came with it. A gateway or a link scanner that fetches the callback URL with a `GET` ahead of the browser (corporate URL rewriting, an email-security sandbox that follows redirects) breaks that sign-in with `replayed`. A `HEAD` request on the callback of a signed-token provider is answered **405** before anything is read or recorded, so a scanner that probes with `HEAD` first does not spend the token.
+- **The cache must be shared.** The one-time `jti` lives in Laravel's default cache store, or in the one `martis.auth.sso.cache_store` names ([The cache store](#the-cache-store-v2220)). With several servers use a shared store (Redis, database, Memcached); the `array` and `file` stores are per process or per host, and the `null` store refuses every sign-in as `replayed`. A cache that is down refuses sign-ins.
 - **Panel B trusts what panel A signs about the person.** Two things, and neither is a flaw to patch: they are what a single sign-on is.
   - *The email.* Panel A signs the address its user row holds, and panel B may adopt a local row by it (`identity_match_attribute => 'email'`, or `external_id` with `link_by_email => true`). So that an attacker cannot register at panel A with an address they do not own and be signed in as its holder at panel B, the token carries `email_verified`, and panel B **refuses to adopt** an existing local row by an email that says `false` (reason `email_unverified`; creating a new user and matching by `external_id` are not affected). Panel A needs a user model that implements `MustVerifyEmail` for the claim to mean anything: without it the claim is always `true`. The default scaffold matches by `external_id` without `link_by_email`, which does not rely on the address at all.
   - *The roles.* With `role_strategy => 'column'` panel B maps the role **names** panel A signs onto its own roles. Whoever can assign roles at panel A, or write the `claims` class, controls which roles that user gets at panel B. Treat the right to assign roles at the issuing panel as a right at every panel that trusts it.
-- **Any site can start an issuance.** The issue route is a `GET` the browser follows with its cookies, and Fetch Metadata allows a top-level navigation however it was started, so any page can send a signed-in user of panel A to `/{martis}/sso/issue/{audience}?state=X` (a link, a script redirect). What it gains is small: the token goes **only** to the audience's configured `callback_url`, where the victim's browser holds no matching `state` (so the token is refused as `state`); it can use up an in-progress flow of the victim at panel B (the state is taken out of the session), and, by starting panel B's flow in the victim's browser first, it can have the victim signed in to panel B **as themselves** without a click. It cannot read a token or sign anyone in as someone else. If that is not acceptable for an audience, give it an `ability` the user must hold deliberately, or do not issue to it.
+- **State fixation: a victim's browser can be made to fetch a token for the attacker's state.** The issue route is a `GET` the browser follows with its cookies, and a top-level navigation is what the legitimate flow is. So an attacker can start the flow at panel B in their own browser (state `S` in their session), then get a signed-in user of panel A to open `/{martis}/sso/issue/{audience}?state=S` (a link, a script redirect). Panel A signs for that user with `S` and redirects to the audience's `callback_url`; there the victim's browser holds no state, so the callback is refused as `state`, but the token is now in a URL that an access log, a proxy or a browser extension may hold, and whoever reads it could present it in the attacker's browser, where `S` matches, and be signed in as the victim.
+  - *What the order now guarantees (v2.22.0).* For a callback that reaches the panel, the verifier uses up the `jti` before it looks at the state, so the first arrival of a validly signed, in-time token for this audience burns it, whatever the state of that request. The victim's own failed callback is that first arrival; a replay from a log finds it used (`replayed`). The one-time record does not wait for the callback's rate limit either: the callback route's middleware (`SpendSignedToken`, which then applies the rate limit itself) runs the verification up to and including the `jti` record first, so a victim whose throttle bucket was filled first (the callback answers 429) has still spent the token. Before v2.22.0 the `jti` was recorded last, so a token refused for its state, or throttled, stayed good for its lifetime.
+  - *What the lured callback still does.* It takes the victim's in-progress state at panel B out of the session (the state is pulled when it is checked), which breaks a sign-in the victim had under way, and, because the attacker started panel B's flow in the victim's browser first, it can have the victim signed in to panel B **as themselves** without a click (login CSRF). It cannot sign anyone in as someone else.
+  - *What is left.* The replay window is closed for a callback that reaches the panel. It stays open when the victim's request **never arrives**: the tab is closed in the middle of the redirect, a content blocker or a proxy drops the request, or a party on the path blocks it and reads the URL. Then the token is live for its lifetime in whatever log recorded the URL, and the attacker's browser (which holds the state) can use it. Keep `ttl_seconds` short (the default is 60), and keep query strings out of the access logs and of the `Location` header logs for `/{martis}/sso/issue/*` and `/{martis}/sso/{provider}/callback` (nginx: log `$uri` instead of `$request_uri` for those locations; most load balancers can drop the query from the logged path).
+  - *Why the package cannot require `Sec-Fetch-Site`.* The legitimate flow goes from panel B to panel A, two hosts, so the navigation to the issue route is itself `cross-site` whenever the panels are on different sites; refusing `cross-site` would refuse every sign-in. An app whose two panels share a site (two subdomains of one registrable domain) may refuse `Sec-Fetch-Site: cross-site` on the issue route in a middleware of its own.
+  - *Why PKCE or a state that panel B signs would not help.* The attacker starts the flow, so they hold the PKCE verifier and they can produce a valid signed state for their own session. Both proofs would be in the attacker's hand when the token is replayed. The one-time `jti` is what ends the window.
+  - If an audience should not be reachable this way at all, give it an `ability` the user must hold deliberately, or do not issue to it.
 - **Revocation does not cross panels.** `MartisSso::revokeFor()` on panel A ends A's SSO sessions; it does **not** end the sessions panel B opened from A's tokens (the signed-token provider does not implement `RevalidatesSessions`), and on panel B it ends B's sessions but the middleware then sends the person to `/{martis}/sso/{name}/redirect`, which signs them straight back in for as long as their session at panel A (or at the IdP, for Azure) lives. Revoke at **every** layer: the IdP or the issuing panel first (`revokeFor()` on A, which also drops A's sessions), then `revokeFor()` on each consuming panel; set `max_session_minutes` on B so a token cannot keep a session going longer than you accept.
-- **The private key is the trust root.** Whoever holds it can sign in to panel B as anyone panel B links by `external_id`. Keep it in the environment of panel A only, give it its own value per environment, and rotate it as above. Panel B holds public keys only. Use the `environment` lock so a staging key (or token) cannot sign in to production.
+- **The private key is the trust root.** Whoever holds it can sign in to panel B as anyone panel B links by `external_id`. Keep it in the environment of panel A only, give it its own value per environment, and rotate it as above. Panel B holds public keys only. Use the `environment` lock on **both** sides so a staging key (or token) cannot sign in to production: the issuer adds the claim, the verifier refuses what does not match, and since v2.22.0 a pair where only the issuer is locked stops signing in until the verifier sets `environment` too, instead of silently ignoring the lock.
 - **Use HTTPS.** `authorize_url` and `callback_url` must be `https`, except `localhost`, `*.localhost`, `*.test`, `127.0.0.1` and `[::1]` for local development.
 - **Clocks.** Keep both servers on NTP; `clock_skew_seconds` is the tolerance and `max_age_seconds` the window.
 - **One flow per browser session.** Starting a second flow in another tab replaces the state of the first, which then fails as `state`.

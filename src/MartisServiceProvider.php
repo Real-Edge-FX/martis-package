@@ -597,6 +597,7 @@ class MartisServiceProvider extends ServiceProvider
         // Ends an SSO-opened session that is too old, revoked or no longer
         // valid at the IdP (v2.21.0), right after `martis.auth`.
         $router->aliasMiddleware('martis.sso.session', EnforceSsoSession::class);
+
         $router->aliasMiddleware('martis.2fa', EnsureTwoFactorChallenge::class);
         $router->aliasMiddleware('martis.locale', ApplyUserPreferencesLocale::class);
         $router->aliasMiddleware('martis.verified', EnsureEmailIsVerified::class);

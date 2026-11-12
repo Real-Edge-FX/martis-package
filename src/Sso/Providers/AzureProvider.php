@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Martis\Sso\Providers;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Laravel\Socialite\Contracts\Provider;
 use Laravel\Socialite\Contracts\User;
 use Laravel\Socialite\Facades\Socialite;
+use Martis\Sso\SsoCache;
 use Martis\Sso\SsoIdentity;
 use Martis\Support\ConfigCallable;
 use RuntimeException;
@@ -160,7 +160,8 @@ class AzureProvider extends AbstractSsoProvider
         }
 
         $key = 'martis.sso.azure.tenant-id.'.sha1(strtolower($tenant));
-        $known = Cache::get($key);
+        $cache = SsoCache::store();
+        $known = $cache->get($key);
 
         if (is_string($known) && $known !== '') {
             return $known;
@@ -178,7 +179,7 @@ class AzureProvider extends AbstractSsoProvider
         }
 
         // Only a tenant id is kept: a failed read is asked again, not cached.
-        Cache::put($key, strtolower($match[1]), now()->addDay());
+        $cache->put($key, strtolower($match[1]), now()->addDay());
 
         return strtolower($match[1]);
     }

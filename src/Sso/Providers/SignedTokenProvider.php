@@ -7,14 +7,16 @@ namespace Martis\Sso\Providers;
 use DateTimeImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Cache;
 use JsonException;
+use Martis\Http\Middleware\SpendSignedToken;
 use Martis\Sso\Contracts\SsoProviderContract;
 use Martis\Sso\SignedToken\ConsumerSettings;
+use Martis\Sso\SignedToken\IssuerSettings;
 use Martis\Sso\SignedToken\ParsedToken;
 use Martis\Sso\SignedToken\PasetoV4Public;
 use Martis\Sso\SignedToken\Reason;
 use Martis\Sso\SignedToken\Urls;
+use Martis\Sso\SsoCache;
 use Martis\Sso\SsoException;
 use Martis\Sso\SsoIdentity;
 use stdClass;
@@ -25,19 +27,31 @@ use Throwable;
  * short-lived, one-time, asymmetric token (v2.21.0): `driver => 'signed-token'`
  * in a provider block, whatever the block is named.
  *
- *   redirect()         a random `state` goes into the browser's session, the
- *                      browser goes to `authorize_url` with `audience` and `state`
+ *   redirect()         a random `state` and its creation time go into the
+ *                      browser's session, the browser goes to `authorize_url` with `audience` and `state`
  *   resolveIdentity()  the callback's `token` (PASETO v4.public, see
  *                      {@see PasetoV4Public}) is checked, in this order: its
  *                      shape, its signature against every configured key, its
- *                      claims (issuer, audience, expiry, age, environment),
- *                      the state (session = query = claim, pulled once), and
- *                      last the one-time `jti`
+ *                      claims (issuer, audience, expiry, age, environment: a token that carries the
+ *                      environment claim needs a verifier with `environment`), the
+ *                      one-time `jti`, and last the state (session = query =
+ *                      claim, pulled when checked, at most ten minutes old)
  *
  * Every refusal is an {@see SsoException} with its own
- * {@see Reason}. The jti is recorded last so a token this verifier rejected
- * for any other reason is not used up. Nothing about the token or a key goes
- * into a message.
+ * {@see Reason}. The jti is recorded after the checks that say the token is
+ * genuine, in time and meant for this verifier, and BEFORE the state (v2.22.0):
+ * the first arrival of such a token uses it up whatever the state says, so a
+ * callback that fails the state check in a victim's browser (an attacker made
+ * the victim's signed-in browser fetch a token for the attacker's state) leaves
+ * nothing to replay from a log. A token refused earlier (bad signature, other
+ * audience, expired, other environment) is not recorded. Nothing about the
+ * token or a key goes into a message.
+ *
+ * The callback route runs everything up to and including the `jti` record in a
+ * middleware that spends the token and only then applies the throttle
+ * ({@see spend()}), so a throttled (429)
+ * callback has still used the token up; {@see resolveIdentity()} then only
+ * checks the state. Used alone, it does every step itself.
  *
  * Not OIDC and not OAuth: a Martis panel signs for its own users, and one
  * other panel trusts that key. For a third-party IdP use the Socialite
@@ -47,6 +61,14 @@ final class SignedTokenProvider implements SsoProviderContract
 {
     /** String claims every token carries; `email_verified` (a boolean) is checked apart. */
     private const REQUIRED_CLAIMS = ['iss', 'aud', 'sub', 'iat', 'exp', 'jti', 'state', 'email'];
+
+    /**
+     * How long the state `redirect()` put in the session is good for (v2.22.0):
+     * the person has this long to sign in at the issuing panel and come back.
+     * Not a config key; a slow sign-in (an MFA prompt, a forgotten password)
+     * that takes longer starts over.
+     */
+    public const STATE_LIFETIME_SECONDS = 600;
 
     /** Bounds the cache key and the memory a hostile jti can take. */
     private const MAX_JTI_LENGTH = 255;
@@ -64,7 +86,7 @@ final class SignedTokenProvider implements SsoProviderContract
         $settings = ConsumerSettings::fromConfig($this->name);
 
         $state = rtrim(strtr(base64_encode(random_bytes(32)), '+/', '-_'), '=');
-        $request->session()->put($this->stateKey(), $state);
+        $request->session()->put($this->stateKey(), ['value' => $state, 'at' => now()->getTimestamp()]);
 
         return redirect()->away(Urls::withQuery($settings->authorizeUrl, [
             'audience' => $settings->audience,
@@ -72,7 +94,69 @@ final class SignedTokenProvider implements SsoProviderContract
         ]));
     }
 
+    /**
+     * Steps 1 to 3 of the sign-in (v2.22.0): the structure, the signature, the
+     * claims and times, the environment and the ONE-TIME `jti`, with their
+     * outcome kept on the request for {@see resolveIdentity()}. A refusal is
+     * kept, not thrown; a configuration error is thrown (a 500, naming the key).
+     *
+     * The callback route runs it from a middleware that applies the throttle
+     * only afterwards ({@see SpendSignedToken}), so that using the
+     * token up does not depend on the request getting past a rate limit: a
+     * victim's callback that is answered 429 would otherwise leave the token
+     * good for its lifetime for whoever reads that URL. The work done before
+     * the throttle is bounded: a token over {@see PasetoV4Public::MAX_TOKEN_LENGTH}
+     * is refused before it is parsed, and nothing is written to the cache for a
+     * token whose signature does not verify.
+     */
+    public function spend(Request $request): void
+    {
+        // Only a refusal is kept. A configuration error (an unusable key of the
+        // block or of the cache store) or a missing ext-sodium is thrown, so it
+        // surfaces as the loud failure it is, never as a refusal of the visitor.
+        try {
+            $outcome = $this->verifyAndSpend($request);
+        } catch (SsoException $e) {
+            $outcome = $e;
+        }
+
+        $request->attributes->set($this->outcomeKey(), $outcome);
+    }
+
     public function resolveIdentity(Request $request): SsoIdentity
+    {
+        // What spend() decided, when the route's middleware ran it; else done here.
+        $kept = $request->attributes->get($this->outcomeKey());
+        if ($kept instanceof Throwable) {
+            throw $kept;
+        }
+        $outcome = is_array($kept) ? $kept : $this->verifyAndSpend($request);
+        $claims = $outcome['claims'];
+
+        // 4. The browser session that started the flow.
+        $this->checkState($request, (string) $claims['state']);
+
+        $roles = $claims[$outcome['role_claim']] ?? [];
+        $name = $claims['name'] ?? null;
+
+        return new SsoIdentity(
+            provider: $this->name,
+            externalId: (string) $claims['sub'],
+            email: (string) $claims['email'],
+            name: is_string($name) && $name !== '' ? $name : null,
+            externalRoles: is_array($roles) ? array_values(array_map('strval', $roles)) : [],
+            raw: $claims,
+            emailVerified: $claims['email_verified'],
+        );
+    }
+
+    /**
+     * Steps 1 to 3: structure, signature, claims and times, environment, one
+     * use. Nothing about the browser session.
+     *
+     * @return array{claims: array<string, mixed>, role_claim: string}
+     */
+    private function verifyAndSpend(Request $request): array
     {
         PasetoV4Public::ensureAvailable();
         $settings = ConsumerSettings::fromConfig($this->name);
@@ -82,7 +166,7 @@ final class SignedTokenProvider implements SsoProviderContract
             throw $this->refuse(Reason::MALFORMED, 'the callback carries no token');
         }
 
-        // 1. Structure, then the signature.
+        // 1. Structure (the length first), then the signature.
         $parsed = PasetoV4Public::parse($token);
         $this->verifySignature($parsed, $settings);
 
@@ -109,24 +193,20 @@ final class SignedTokenProvider implements SsoProviderContract
 
         $this->checkEnvironment($claims, $settings);
 
-        // 3. The browser session that started the flow.
-        $this->checkState($request, (string) $claims['state']);
-
-        // 4. One use, recorded last.
+        // 3. One use, recorded BEFORE the state is looked at: a token that is
+        //    validly signed, in time and for this audience is used up by the
+        //    first request that carries it, whatever that request's state is.
+        //    A token whose callback fails the state check in a victim's
+        //    browser (state fixation) must not stay good for its lifetime in
+        //    the access log of whoever reads that URL.
         $this->useOnce((string) $claims['jti'], min($exp, $iat + $settings->maxAgeSeconds) + $skew - $now);
 
-        $roles = $claims[$settings->roleClaim] ?? [];
-        $name = $claims['name'] ?? null;
+        return ['claims' => $claims, 'role_claim' => $settings->roleClaim];
+    }
 
-        return new SsoIdentity(
-            provider: $this->name,
-            externalId: (string) $claims['sub'],
-            email: (string) $claims['email'],
-            name: is_string($name) && $name !== '' ? $name : null,
-            externalRoles: is_array($roles) ? array_values(array_map('strval', $roles)) : [],
-            raw: $claims,
-            emailVerified: $claims['email_verified'],
-        );
+    private function outcomeKey(): string
+    {
+        return 'martis.sso.signed_token.'.$this->name;
     }
 
     private function stateKey(): string
@@ -256,28 +336,47 @@ final class SignedTokenProvider implements SsoProviderContract
 
     /**
      * A verifier locked to an environment (`environment`) takes only tokens
-     * that carry it: a staging token does not sign in to production.
+     * that carry it: a staging token does not sign in to production. The lock
+     * is a pair (v2.22.0): a token that carries the environment claim at a
+     * verifier with no `environment` is refused too, because the issuer is
+     * locked and this side would ignore it.
      *
      * @param  array<string, mixed>  $claims
      */
     private function checkEnvironment(array $claims, ConsumerSettings $settings): void
     {
         if ($settings->environment === null) {
+            if (array_key_exists(IssuerSettings::ENVIRONMENT_CLAIM, $claims)) {
+                throw $this->refuse(Reason::ENVIRONMENT, 'the issuer is locked to an environment and this verifier is not: set `environment` in the provider block');
+            }
+
             return;
         }
 
-        $this->same($claims[$settings->environmentClaim] ?? null, $settings->environment, Reason::ENVIRONMENT, 'the token is from another environment');
+        $this->same($claims[IssuerSettings::ENVIRONMENT_CLAIM] ?? null, $settings->environment, Reason::ENVIRONMENT, 'the token is from another environment');
     }
 
     /**
-     * The state the flow put in the session (pulled: it is good for one
-     * attempt), the callback's `state` query parameter and the token's `state`
-     * claim must all be the same.
+     * The state the flow put in the session (pulled when it is checked: it
+     * is good for one check, whatever its outcome, and for {@see self::STATE_LIFETIME_SECONDS} from the redirect),
+     * the callback's `state` query parameter and the token's `state` claim
+     * must all be the same. A state kept without its creation time (a flow
+     * started before v2.22.0) is refused: the person starts over.
      */
-    private function checkState(Request $request, string $claimed): void
+    private function checkState(Request $request, #[\SensitiveParameter] string $claimed): void
     {
-        $expected = $request->hasSession() ? $request->session()->pull($this->stateKey()) : null;
+        $kept = $request->hasSession() ? $request->session()->pull($this->stateKey()) : null;
         $query = $request->query('state');
+
+        $expected = null;
+        if (is_array($kept) && is_string($kept['value'] ?? null) && is_int($kept['at'] ?? null)) {
+            if (now()->getTimestamp() - $kept['at'] > self::STATE_LIFETIME_SECONDS) {
+                // Same reason as a mismatch (`state`), but the log says which.
+                throw $this->refuse(Reason::STATE, 'the state is older than its '.(self::STATE_LIFETIME_SECONDS / 60).' minutes lifetime, so the sign-in has to start again');
+            }
+
+            $expected = $kept['value'];
+        }
 
         $matches = is_string($expected) && $expected !== ''
             && is_string($query)
@@ -293,15 +392,18 @@ final class SignedTokenProvider implements SsoProviderContract
      * one second: the time checks accept the very last second of that window,
      * while a cache entry is gone at its expiry second, so without the extra
      * second the record vanishes on the last instant the token is still good.
-     * The cache must be shared by every server of the panel and must not evict
+     * The cache store ({@see SsoCache}) must be shared by every server of the panel and must not evict
      * early; when it fails the token is refused, not let through.
      */
-    private function useOnce(string $jti, int $seconds): void
+    private function useOnce(#[\SensitiveParameter] string $jti, int $seconds): void
     {
         $key = 'martis_sso_jti:'.$this->name.':'.hash('sha256', $jti);
+        // Resolved outside the try: an unknown store is a config error that
+        // names the key, not a store failure.
+        $cache = SsoCache::store();
 
         try {
-            $added = Cache::add($key, true, max(1, $seconds + 1));
+            $added = $cache->add($key, true, max(1, $seconds + 1));
         } catch (Throwable $e) {
             throw new SsoException('Signed token refused: the one-time store failed.', Reason::REPLAY_STORE, null, $e);
         }
