@@ -1334,10 +1334,15 @@ interface ToastLink {
     href: string;
     label: string;
 }
+interface ToastOptions {
+    link?: ToastLink;
+    /** Lifetime in ms; `null` keeps the toast until closed. Beats `martis.toast.durations`. */
+    life?: number | null;
+    /** Remove a sticky toast when the route changes. Default false. */
+    dismissOnNavigate?: boolean;
+}
 interface ToastContextValue {
-    addToast: (type: ToastType, message: string, options?: {
-        link?: ToastLink;
-    }) => void;
+    addToast: (type: ToastType, message: string, options?: ToastOptions) => void;
     toastRef: React.RefObject<Toast | null>;
 }
 declare function useToast(): ToastContextValue;
@@ -1543,6 +1548,8 @@ interface MartisDashboardConfig {
     showResourceCards?: boolean;
 }
 interface MartisToastConfig {
+    /** Lifetime per severity in milliseconds; `null` = stays until closed. */
+    durations?: Partial<Record<"success" | "info" | "warning" | "error", number | null>>;
     position?: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "top-center" | "bottom-center";
 }
 interface MartisFooterConfig {
@@ -2232,6 +2239,53 @@ interface AuthFrameProps {
  * `config.footer.text` if set, otherwise the bundled translation.
  */
 declare function AuthFrame({ children, width }: AuthFrameProps): react_jsx_runtime.JSX.Element;
+
+type ChallengeSurface = 'login' | 'forgot' | 'reset' | 'magic_link' | 'register' | 'invitation';
+/** What the registered `auth:challenge` component receives. */
+interface AuthChallengeProps {
+    /** The public site key (`martis.auth.challenge.site_key`), if any. */
+    siteKey: string | null;
+    /** The form it sits on, so one component can configure itself per form. */
+    surface: string;
+    /** Hand the token up when the widget solved, or `null` when it expired or reset. */
+    onToken: (token: string | null) => void;
+    /** Bumped after a failed submit: render a fresh challenge when it changes. */
+    resetSignal: number;
+}
+interface AuthChallengeState {
+    /** Whether a surface of this form is covered by the challenge. */
+    active: boolean;
+    /** Enabled for this form but no `auth:challenge` component is registered. */
+    misconfigured: boolean;
+    /** The surface the widget is told it sits on. */
+    surface: string;
+    siteKey: string | null;
+    token: string | null;
+    resetSignal: number;
+    setToken: (token: string | null) => void;
+    /** Drop the token and ask the widget for a fresh one. Call after a failed submit. */
+    reset: () => void;
+    /** The request-body field for `surface`: `{ challenge_token }` or nothing. */
+    fields: (surface: ChallengeSurface) => {
+        challenge_token?: string;
+    };
+}
+/**
+ * State of the challenge on one form. `surfaces` are the surfaces the form
+ * can submit to (the login page: `login` and `magic_link`); the widget shows
+ * when any is covered, and the token is sent only to a covered one.
+ */
+declare function useAuthChallenge(surfaces: ChallengeSurface | readonly ChallengeSurface[]): AuthChallengeState;
+/**
+ * Renders the registered widget inside a form, or a visible configuration
+ * error when the challenge is on and nothing is registered (a form that
+ * cannot pass must say so, not fail on submit with no explanation).
+ * Nothing at all for a form the challenge does not cover.
+ */
+declare function AuthChallenge({ challenge, error }: {
+    challenge: AuthChallengeState;
+    error?: string;
+}): react_jsx_runtime.JSX.Element | null;
 
 interface SidebarProps {
     mobileOpen?: boolean;
@@ -7804,18 +7858,6 @@ interface TopbarSlotProps {
     placement: TopbarSlotPlacement;
 }
 
-/** What the registered `auth:challenge` component receives. */
-interface AuthChallengeProps {
-    /** The public site key (`martis.auth.challenge.site_key`), if any. */
-    siteKey: string | null;
-    /** The form it sits on, so one component can configure itself per form. */
-    surface: string;
-    /** Hand the token up when the widget solved, or `null` when it expired or reset. */
-    onToken: (token: string | null) => void;
-    /** Bumped after a failed submit: render a fresh challenge when it changes. */
-    resetSignal: number;
-}
-
 /**
  * The `@martis/runtime` bag. Exposed on `window.Martis.runtime`
  * by `app.tsx`. Consumer-extension shims re-export from here.
@@ -7845,6 +7887,8 @@ declare const martisRuntime: {
     readonly config: MartisConfigShape;
     readonly martisEventBus: EventBus;
     readonly AuthFrame: typeof AuthFrame;
+    readonly useAuthChallenge: typeof useAuthChallenge;
+    readonly AuthChallenge: typeof AuthChallenge;
     readonly Sidebar: typeof Sidebar;
     readonly Topbar: typeof Topbar;
     readonly Footer: typeof Footer;
@@ -7913,5 +7957,5 @@ declare const martisRuntime: {
  */
 type MartisRuntime = typeof martisRuntime;
 
-export { ApiError, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, PasswordChangeRequiredError, ResourceIcon, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, apiPath, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, htmlTooltip, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, parseAuthLinkFragment, pathSegment, reloadOnStaleChunk, resolveColor, routePath, routeRegistry, trustHtmlTooltip, useAuth, useAuthLinkParams, useDashboardFilters, useDynamicCrumb, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalFocus, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRefreshRecord, useRevalidateOnFocus, useRunAction, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard, withQuery };
-export type { ActionResponseModalProps, ActiveFilters, AuthChallengeProps, AuthLinkParams, DashboardFiltersContextValue, DashboardFiltersOptions, DashboardFiltersUpdate, DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, HtmlTooltipProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, ModalFocusOptions, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, RefreshRecord, RegisteredRoutePageProps, ResourceIconProps, RouteRegistration, RunAction, RunActionOptions, RunActionResult, SetDashboardFilters, Shortcut, ShortcutOptions, ToolDescriptor, TooltipProps, TopbarSlotPlacement, TopbarSlotProps, UseToolFieldsResult };
+export { ApiError, AuthChallenge, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, PasswordChangeRequiredError, ResourceIcon, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, apiPath, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, htmlTooltip, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, parseAuthLinkFragment, pathSegment, reloadOnStaleChunk, resolveColor, routePath, routeRegistry, trustHtmlTooltip, useAuth, useAuthChallenge, useAuthLinkParams, useDashboardFilters, useDynamicCrumb, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalFocus, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRefreshRecord, useRevalidateOnFocus, useRunAction, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard, withQuery };
+export type { ActionResponseModalProps, ActiveFilters, AuthChallengeProps, AuthChallengeState, AuthLinkParams, ChallengeSurface, DashboardFiltersContextValue, DashboardFiltersOptions, DashboardFiltersUpdate, DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, HtmlTooltipProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, ModalFocusOptions, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, RefreshRecord, RegisteredRoutePageProps, ResourceIconProps, RouteRegistration, RunAction, RunActionOptions, RunActionResult, SetDashboardFilters, Shortcut, ShortcutOptions, ToolDescriptor, TooltipProps, TopbarSlotPlacement, TopbarSlotProps, UseToolFieldsResult };
