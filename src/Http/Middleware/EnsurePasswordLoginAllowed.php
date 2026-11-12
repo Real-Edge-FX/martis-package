@@ -7,6 +7,7 @@ namespace Martis\Http\Middleware;
 use Closure;
 use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Http\Request;
+use Martis\Auth\AccountLoginThrottle;
 use Martis\Auth\PasswordLogin;
 use Martis\Support\TranslatedLine;
 use Symfony\Component\HttpFoundation\Response;
@@ -17,6 +18,13 @@ use Symfony\Component\HttpFoundation\Response;
  * controller reads any credential, the same answer for every address. An
  * address of `martis.auth.password_login.break_glass_emails` passes to the
  * normal flow. The throttles of the route run before this.
+ *
+ * An address that may not use the form is refused only after the account
+ * lookup and one password check against a decoy hash, the work a failed
+ * sign-in of a listed address costs, so the time of the answer is no oracle
+ * either. What cannot be equalised: a challenge verifier call that only the
+ * listed path makes (the challenge runs after this middleware, and is
+ * skipped for an unlisted address), and the state of the throttles.
  *
  * The list must not be an oracle: a break-glass sign-in that does not succeed
  * (an unknown account, a wrong password, a malformed body, the per-account
@@ -41,14 +49,27 @@ class EnsurePasswordLoginAllowed
 
         $email = $request->input('email');
 
+        /** @var StatefulGuard $guard */
+        $guard = auth()->guard(config('martis.guard'));
+
         if (! PasswordLogin::isBreakGlass($email)) {
+            // The cost of the sign-in this refusal stands in for: the account
+            // lookup and one password check, so the time it takes does not
+            // tell an address that is not listed from one that is.
+            AccountLoginThrottle::userFor($guard, is_string($email) ? $email : '');
+            PasswordLogin::spendCheck($request->input('password'));
+
             return $this->refuse($request);
         }
 
-        $request->merge(['email' => PasswordLogin::normalise((string) $email)]);
+        $email = PasswordLogin::normalise((string) $email);
+        $request->merge(['email' => $email]);
 
-        /** @var StatefulGuard $guard */
-        $guard = auth()->guard(config('martis.guard'));
+        // A listed address with no account never reaches a password check in
+        // the controller (nothing to compare): pay it here instead.
+        if (AccountLoginThrottle::userFor($guard, $email) === null) {
+            PasswordLogin::spendCheck($request->input('password'));
+        }
         $before = $guard->check() ? $guard->id() : null;
 
         // The router's pipeline renders an exception of the controller (the

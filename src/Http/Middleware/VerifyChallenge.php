@@ -18,6 +18,10 @@ use Martis\Support\TranslatedLine;
  * captcha vendor included, reported through `report()`) refuses with a 422
  * carrying `errors.challenge_token`.
  *
+ * A surface whose own flow is switched off (registration, password reset,
+ * magic link, invitations) is not verified: the controller answers its usual
+ * disabled response.
+ *
  * A configuration that is set but unusable throws, naming the key.
  */
 class VerifyChallenge
@@ -28,6 +32,13 @@ class VerifyChallenge
     public function handle(Request $request, Closure $next, string $surface): mixed
     {
         if (! ChallengeConfig::covers($surface)) {
+            return $next($request);
+        }
+
+        // The flow behind the surface is switched off: its controller answers
+        // its usual 404 or 503, and no call to the captcha vendor is spent on
+        // a request nothing will act on.
+        if (! ChallengeConfig::flowEnabled($surface)) {
             return $next($request);
         }
 

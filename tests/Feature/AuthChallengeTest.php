@@ -97,6 +97,15 @@ function challengeUser(): User
     return $user;
 }
 
+/** Switch on every flow a challenged route guards, so its controller is reachable. */
+function enableEveryFlow(): void
+{
+    config()->set('martis.auth.registration.enabled', true);
+    config()->set('martis.auth.passwordReset.enabled', true);
+    config()->set('martis.auth.magic_link.enabled', true);
+    config()->set('martis.invitations.enabled', true);
+}
+
 beforeEach(function () {
     Cache::flush();
     AcceptingChallengeVerifier::$calls = 0;
@@ -116,6 +125,7 @@ it('is off by default and leaves every route alone', function () {
 
 it('refuses a POST without a token with a 422 on challenge_token, before the controller', function (string $surface, string $uri) {
     enableChallenge();
+    enableEveryFlow();
 
     $response = $this->postJson($uri, ['email' => 'person@example.com', 'password' => 'secret-pass-123']);
 
@@ -125,21 +135,61 @@ it('refuses a POST without a token with a 422 on challenge_token, before the con
 
 it('refuses a wrong token the same way', function (string $surface, string $uri) {
     enableChallenge();
+    enableEveryFlow();
 
     $this->postJson($uri, ['challenge_token' => 'forged'])->assertStatus(422)->assertJsonValidationErrors(['challenge_token']);
 })->with('challenged routes');
 
 it('lets a valid token through to the controller', function (string $surface, string $uri) {
     enableChallenge();
+    enableEveryFlow();
 
     $response = $this->postJson($uri, ['challenge_token' => 'valid-token']);
 
-    // The flow is switched off in the test app, so the controller answers
-    // 404 or 503; the challenge is passed.
+    // The controller answers (its own validation, no body sent): the
+    // challenge is passed.
     expect($response->getStatusCode())->toBeIn([404, 503, 422]);
     expect($response->json('errors.challenge_token'))->toBeNull();
     expect(AcceptingChallengeVerifier::$calls)->toBe(1);
 })->with('challenged routes');
+
+/** The surfaces whose own flow can be switched off: [surface, uri, the switch's config key]. */
+dataset('flow-gated routes', [
+    'forgot' => ['forgot', '/martis/api/auth/password/email', 'martis.auth.passwordReset.enabled'],
+    'reset' => ['reset', '/martis/api/auth/password/reset', 'martis.auth.passwordReset.enabled'],
+    'magic_link' => ['magic_link', '/martis/api/auth/magic-link/request', 'martis.auth.magic_link.enabled'],
+    'register' => ['register', '/martis/api/auth/register', 'martis.auth.registration.enabled'],
+    'invitation' => ['invitation', '/martis/api/invitations/accept', 'martis.invitations.enabled'],
+]);
+
+it('does not call the verifier for a surface whose own flow is switched off', function (string $surface, string $uri, string $switch) {
+    enableChallenge();
+    config()->set($switch, false);
+
+    $response = $this->postJson($uri, ['email' => 'a@example.com']);
+
+    // The flow's usual disabled answer, never the challenge's 422.
+    expect($response->getStatusCode())->toBeIn([404, 503]);
+    expect($response->json('errors.challenge_token'))->toBeNull();
+    expect(AcceptingChallengeVerifier::$calls)->toBe(0);
+})->with('flow-gated routes');
+
+it('calls the verifier again once the flow is switched on', function (string $surface, string $uri, string $switch) {
+    enableChallenge();
+    enableEveryFlow();
+
+    $this->postJson($uri, ['email' => 'a@example.com'])->assertStatus(422)->assertJsonValidationErrors(['challenge_token']);
+    expect(AcceptingChallengeVerifier::$calls)->toBe(1);
+})->with('flow-gated routes');
+
+it('treats an empty value of the challenge switch as unset', function () {
+    challengeUser();
+    config()->set('martis.auth.challenge', ['enabled' => '', 'verifier' => null, 'site_key' => null, 'applies_to' => ['login']]);
+
+    expect(ChallengeConfig::enabled())->toBeFalse();
+    $this->postJson('/martis/api/auth/login', ['email' => 'a@example.com', 'password' => 'x'])->assertStatus(422)
+        ->assertJsonMissingValidationErrors(['challenge_token']);
+});
 
 it('refuses valid credentials without a token on both login routes and signs nobody in', function () {
     $user = challengeUser();
@@ -169,6 +219,7 @@ it('signs in on the form route with a valid token', function () {
 it('fails closed when the verifier throws, and reports the throwable', function (string $surface, string $uri) {
     Exceptions::fake();
     enableChallenge(ThrowingChallengeVerifier::class);
+    enableEveryFlow();
 
     $this->postJson($uri, ['challenge_token' => 'valid-token'])
         ->assertStatus(422)
@@ -201,6 +252,7 @@ it('does not guard the GET pages or the sign-out', function () {
 });
 
 it('runs after the throttles and the password sign-in switch', function () {
+    challengeUser();
     enableChallenge();
     config()->set('martis.auth.password_login.enabled', false);
 

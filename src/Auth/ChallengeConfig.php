@@ -37,9 +37,17 @@ final class ChallengeConfig
 
     private const KEY = 'martis.auth.challenge';
 
+    /**
+     * The switch. An empty string (`env()` of a `KEY=` line) is "unset": the
+     * default (off) applies.
+     */
     public static function enabled(): bool
     {
         $value = config(self::KEY.'.enabled', false);
+
+        if (is_string($value) && trim($value) === '') {
+            return false;
+        }
 
         if (is_bool($value)) {
             return $value;
@@ -131,6 +139,24 @@ final class ChallengeConfig
         self::verifierClass();
 
         return in_array($surface, $applies, true);
+    }
+
+    /**
+     * Whether the flow behind a surface is switched on. A switched-off flow
+     * answers its own 404 or 503 (its controller), so nothing is worth
+     * verifying: the middleware leaves it alone. The login surface has no
+     * switch of its own here (the password sign-in switch runs before the
+     * challenge).
+     */
+    public static function flowEnabled(string $surface): bool
+    {
+        return match ($surface) {
+            self::FORGOT, self::RESET => PasswordLogin::passwordResetEnabled(),
+            self::MAGIC_LINK => (bool) config('martis.auth.magic_link.enabled', false),
+            self::REGISTER => (bool) config('martis.auth.registration.enabled', false),
+            self::INVITATION => (bool) config('martis.invitations.enabled', false),
+            default => true,
+        };
     }
 
     /**
