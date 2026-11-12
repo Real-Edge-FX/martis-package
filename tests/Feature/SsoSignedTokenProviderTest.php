@@ -822,3 +822,84 @@ it('keeps the record at least one second, even for a token that expires at once'
     // Refused as expired before the store is touched: nothing is recorded for it.
     expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::EXPIRED);
 });
+
+// -----------------------------------------------------------------------------
+// spend(): the part of the sign-in that must not depend on the throttle (v2.22.0)
+// -----------------------------------------------------------------------------
+
+it('spends the token ahead of resolveIdentity() and resolveIdentity() only checks the state', function () {
+    $flow = stBegin(stProvider());
+    $claims = stClaims($flow['state']);
+    $token = stSign($claims, $this->keys['secret']);
+    $request = stCallback($flow['session'], $token, $flow['state']);
+
+    stProvider()->spend($request);
+
+    // The jti is recorded already, before the state is looked at.
+    expect(Cache::has('martis_sso_jti:panel_a:'.hash('sha256', $claims['jti'])))->toBeTrue();
+
+    $identity = stProvider()->resolveIdentity($request);
+    expect($identity->externalId)->toBe('42');
+
+    // Nothing was recorded twice: another request with the token is a replay.
+    stRestoreState($flow);
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::REPLAYED);
+});
+
+it('keeps the refusal of spend() for resolveIdentity() and does not record a token it refused', function (Closure $mutate, string $reason) {
+    $flow = stBegin(stProvider());
+    $claims = stClaims($flow['state']);
+    $token = $mutate($claims, $this->keys, $flow);
+    $request = stCallback($flow['session'], $token, $flow['state']);
+
+    stProvider()->spend($request);
+
+    expect(fn () => stProvider()->resolveIdentity($request))
+        ->toThrow(fn (SsoException $e) => expect($e->reason)->toBe($reason));
+    expect(Cache::has('martis_sso_jti:panel_a:'.hash('sha256', $claims['jti'])))->toBeFalse();
+})->with([
+    'a bad signature' => [fn ($claims, $keys) => stSign($claims, stKeys()['secret']), Reason::BAD_SIGNATURE],
+    'another audience' => [fn ($claims, $keys) => stSign([...$claims, 'aud' => 'https://x.example'], $keys['secret']), Reason::AUDIENCE],
+    'garbage' => [fn () => 'not-a-token', Reason::MALFORMED],
+]);
+
+it('keeps the state refusal for resolveIdentity() after spend(), with the token already used up', function () {
+    $flow = stBegin(stProvider());
+    $claims = stClaims($flow['state']);
+    $token = stSign($claims, $this->keys['secret']);
+    $request = stCallback($flow['session'], $token, str_repeat('x', 43));
+
+    stProvider()->spend($request);
+
+    expect(fn () => stProvider()->resolveIdentity($request))
+        ->toThrow(fn (SsoException $e) => expect($e->reason)->toBe(Reason::STATE));
+    expect(Cache::has('martis_sso_jti:panel_a:'.hash('sha256', $claims['jti'])))->toBeTrue();
+});
+
+it('keeps a configuration error of spend() for resolveIdentity()', function () {
+    $flow = stBegin(stProvider());
+    stConsumer([$this->keys['public_b64']], 'panel_a', ['issuer' => '']);
+    $request = stCallback($flow['session'], 'v4.public.x', $flow['state']);
+
+    stProvider()->spend($request);
+
+    expect(fn () => stProvider()->resolveIdentity($request))->toThrow(InvalidArgumentException::class, 'martis.auth.sso.providers.panel_a.issuer');
+});
+
+it('refuses a token over the fixed length before it parses it, and records nothing', function () {
+    $flow = stBegin(stProvider());
+    $request = stCallback($flow['session'], 'v4.public.'.str_repeat('A', PasetoV4Public::MAX_TOKEN_LENGTH), $flow['state']);
+    stCacheMock()->shouldNotReceive('add');
+
+    stProvider()->spend($request);
+
+    expect(fn () => stProvider()->resolveIdentity($request))
+        ->toThrow(fn (SsoException $e) => expect($e->reason)->toBe(Reason::MALFORMED));
+});
+
+it('still does everything itself when spend() did not run', function () {
+    $flow = stBegin(stProvider());
+    $token = stSign(stClaims($flow['state']), $this->keys['secret']);
+
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe('accepted');
+});

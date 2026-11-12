@@ -19,7 +19,9 @@ use Illuminate\Testing\TestResponse;
 use Martis\Auth\TwoFactorPass;
 use Martis\Events\SsoFailed;
 use Martis\Events\SsoLoggedIn;
+use Martis\Http\Middleware\SpendSignedToken;
 use Martis\Sso\Facades\MartisSso;
+use Martis\Sso\Providers\SignedTokenProvider;
 use Martis\Sso\SsoManager;
 use Psr\Log\LoggerInterface;
 
@@ -306,6 +308,86 @@ it('does not let the attacker replay, in their own browser, a token the victim b
 
     expect(auth()->check())->toBeFalse();
     Event::assertDispatched(SsoFailed::class, fn (SsoFailed $e) => $e->reason === 'replayed');
+});
+
+it('uses the token up even when the victim callback is throttled (429): the replay from another address is refused', function () {
+    // The attacker starts the flow in their browser and lures the signed-in victim to the issue URL.
+    $start = $this->get('/martis/sso/panel_a/redirect');
+    $toIssuer = (string) $start->headers->get('Location');
+    $attackerSession = session()->all();
+    $issue = $this->actingAs($this->issuerUser)
+        ->withSession([TwoFactorPass::SESSION_KEY => (string) $this->issuerUser->getKey()])
+        ->get($toIssuer);
+    $callback = (string) $issue->headers->get('Location');
+
+    // The lured page first fires callbacks at the victim's address until its throttle bucket is full.
+    $this->flushSession();
+    auth()->logout();
+    for ($i = 0; $i < 20; $i++) {
+        $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.9'])->get(url('/martis/sso/panel_a/callback').'?token=x');
+    }
+    $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.9'])->get($callback)->assertStatus(429);
+
+    // The attacker, from another address, holds the state and replays the leaked URL: the token is used up.
+    $this->flushSession();
+    $this->withSession($attackerSession);
+    Event::fake([SsoFailed::class]);
+    $this->withServerVariables(['REMOTE_ADDR' => '198.51.100.7'])->get($callback)->assertRedirect(route('martis.login'));
+
+    expect(auth()->check())->toBeFalse();
+    Event::assertDispatched(SsoFailed::class, fn (SsoFailed $e) => $e->reason === 'replayed');
+});
+
+it('runs the one-time check before the throttle on the callback route', function () {
+    $middleware = app('router')->getRoutes()->getByName('martis.sso.callback')->gatherMiddleware();
+
+    $spend = array_search(SpendSignedToken::class, $middleware, true);
+    $throttle = collect($middleware)->search(fn ($m) => is_string($m) && str_starts_with($m, 'throttle:'));
+
+    expect($spend)->not->toBeFalse()->and($throttle)->not->toBeFalse()->and($spend)->toBeLessThan($throttle);
+});
+
+it('answers 405 to a HEAD request on the callback and does not spend the token', function () {
+    $start = $this->get('/martis/sso/panel_a/redirect');
+    $toIssuer = (string) $start->headers->get('Location');
+    $mine = session()->all();
+    $issue = $this->actingAs($this->issuerUser)
+        ->withSession([TwoFactorPass::SESSION_KEY => (string) $this->issuerUser->getKey()])
+        ->get($toIssuer);
+    $callback = (string) $issue->headers->get('Location');
+    auth()->logout();
+    $this->flushSession();
+
+    // A link scanner or a gateway that probes with HEAD.
+    $this->call('HEAD', $callback)->assertStatus(405)->assertHeader('Allow', 'GET');
+
+    // The browser then arrives and signs in: nothing was read or recorded.
+    $this->flushSession();
+    $this->withSession($mine);
+    $this->get($callback)->assertRedirect();
+    expect(auth()->check())->toBeTrue();
+});
+
+it('does not read a provider name in another letter case, so the token is not spent by it', function () {
+    $start = $this->get('/martis/sso/panel_a/redirect');
+    $issue = $this->actingAs($this->issuerUser)
+        ->withSession([TwoFactorPass::SESSION_KEY => (string) $this->issuerUser->getKey()])
+        ->get((string) $start->headers->get('Location'));
+    $lower = (string) $issue->headers->get('Location');
+    $upper = str_replace('/sso/panel_a/callback', '/sso/PANEL_A/callback', $lower);
+    auth()->logout();
+
+    $this->get($upper)->assertNotFound();
+    $this->get($lower)->assertRedirect();
+
+    expect(auth()->check())->toBeTrue();
+});
+
+it('leaves the callback of another provider alone', function () {
+    config(['martis.auth.sso.providers.azure' => ['enabled' => true, 'driver' => 'azure']]);
+
+    expect(app(SsoManager::class)->driver('azure'))->not->toBeInstanceOf(SignedTokenProvider::class);
+    $this->get('/martis/sso/azure/callback?token=whatever')->assertRedirect(route('martis.login'));
 });
 
 it('answers 404 to a callback path in another letter case, so an account is never adopted under defaults', function () {

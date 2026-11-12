@@ -8,6 +8,7 @@ use DateTimeImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use JsonException;
+use Martis\Http\Middleware\SpendSignedToken;
 use Martis\Sso\Contracts\SsoProviderContract;
 use Martis\Sso\SignedToken\ConsumerSettings;
 use Martis\Sso\SignedToken\IssuerSettings;
@@ -87,7 +88,66 @@ final class SignedTokenProvider implements SsoProviderContract
         ]));
     }
 
+    /**
+     * Steps 1 to 3 of the sign-in (v2.22.0): the structure, the signature, the
+     * claims and times, the environment and the ONE-TIME `jti`, with their
+     * outcome kept on the request for {@see resolveIdentity()}. A refusal is
+     * kept, not thrown, and so is a configuration error.
+     *
+     * The callback route runs it from a middleware placed BEFORE the throttle
+     * ({@see SpendSignedToken}), so that using the
+     * token up does not depend on the request getting past a rate limit: a
+     * victim's callback that is answered 429 would otherwise leave the token
+     * good for its lifetime for whoever reads that URL. The work done before
+     * the throttle is bounded: a token over {@see PasetoV4Public::MAX_TOKEN_LENGTH}
+     * is refused before it is parsed, and nothing is written to the cache for a
+     * token whose signature does not verify.
+     */
+    public function spend(Request $request): void
+    {
+        try {
+            $outcome = $this->verifyAndSpend($request);
+        } catch (Throwable $e) {
+            $outcome = $e;
+        }
+
+        $request->attributes->set($this->outcomeKey(), $outcome);
+    }
+
     public function resolveIdentity(Request $request): SsoIdentity
+    {
+        // What spend() decided, when the route's middleware ran it; else done here.
+        $kept = $request->attributes->get($this->outcomeKey());
+        if ($kept instanceof Throwable) {
+            throw $kept;
+        }
+        $outcome = is_array($kept) ? $kept : $this->verifyAndSpend($request);
+        $claims = $outcome['claims'];
+
+        // 4. The browser session that started the flow.
+        $this->checkState($request, (string) $claims['state']);
+
+        $roles = $claims[$outcome['role_claim']] ?? [];
+        $name = $claims['name'] ?? null;
+
+        return new SsoIdentity(
+            provider: $this->name,
+            externalId: (string) $claims['sub'],
+            email: (string) $claims['email'],
+            name: is_string($name) && $name !== '' ? $name : null,
+            externalRoles: is_array($roles) ? array_values(array_map('strval', $roles)) : [],
+            raw: $claims,
+            emailVerified: $claims['email_verified'],
+        );
+    }
+
+    /**
+     * Steps 1 to 3: structure, signature, claims and times, environment, one
+     * use. Nothing about the browser session.
+     *
+     * @return array{claims: array<string, mixed>, role_claim: string}
+     */
+    private function verifyAndSpend(Request $request): array
     {
         PasetoV4Public::ensureAvailable();
         $settings = ConsumerSettings::fromConfig($this->name);
@@ -97,7 +157,7 @@ final class SignedTokenProvider implements SsoProviderContract
             throw $this->refuse(Reason::MALFORMED, 'the callback carries no token');
         }
 
-        // 1. Structure, then the signature.
+        // 1. Structure (the length first), then the signature.
         $parsed = PasetoV4Public::parse($token);
         $this->verifySignature($parsed, $settings);
 
@@ -132,21 +192,12 @@ final class SignedTokenProvider implements SsoProviderContract
         //    the access log of whoever reads that URL.
         $this->useOnce((string) $claims['jti'], min($exp, $iat + $settings->maxAgeSeconds) + $skew - $now);
 
-        // 4. The browser session that started the flow.
-        $this->checkState($request, (string) $claims['state']);
+        return ['claims' => $claims, 'role_claim' => $settings->roleClaim];
+    }
 
-        $roles = $claims[$settings->roleClaim] ?? [];
-        $name = $claims['name'] ?? null;
-
-        return new SsoIdentity(
-            provider: $this->name,
-            externalId: (string) $claims['sub'],
-            email: (string) $claims['email'],
-            name: is_string($name) && $name !== '' ? $name : null,
-            externalRoles: is_array($roles) ? array_values(array_map('strval', $roles)) : [],
-            raw: $claims,
-            emailVerified: $claims['email_verified'],
-        );
+    private function outcomeKey(): string
+    {
+        return 'martis.sso.signed_token.'.$this->name;
     }
 
     private function stateKey(): string
