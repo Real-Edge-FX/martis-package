@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.21.0] — 2026-11-12
+
+Minor release from ten consumer requests about sign-in: a panel that signs in only through SSO, including through another Martis panel. It fixes `external_id` matching, stops publishing the `auth` config to the browser, and adds a signed-token provider, session limits and revocation for SSO sessions, a switch for password sign-in, a challenge (captcha) hook and configurable toast lifetimes. Four behaviours change without any config: read [Upgrading to v2.21.0](docs/upgrading.md#upgrading-to-v2210-from-v220x). Republish the assets (`php artisan martis:publish-assets`), the config and the extension shims.
+
+### Security
+
+- **`window.MartisConfig.auth` is an allow-list.** The login page, which is public, received the whole `martis.auth` array: every SSO provider block (role maps, tenant ids, logout URLs, any key an app added), column names and broker names. Only the keys the SPA reads are published now (`Martis\Auth\PublishedAuthConfig`); of a provider block only `enabled`, `label`, `icon` and the keys it lists in a new optional `public` array, and only for enabled providers. The other blocks of the page shell (`theme`, `search`, `notifications` and so on) are still published whole.
+- **An empty external id no longer matches a local row.** With `identity_match_attribute = external_id`, an identity whose id was empty matched a row whose id column was empty. It is refused (`missing_external_id`).
+- **An SSO callback path in another letter case is a 404.** `/sso/AZURE/callback` loaded the provider but read its settings under the name as typed, so the defaults applied (email matching, no session limit).
+- **An `on_no_role_match` value other than `deny`, `guest` or `callable` throws**, naming the key. It used to sign the user in with no role.
+
+### Added
+
+- **Signed token between two Martis apps.** `driver => 'signed-token'` in a provider block signs a panel's users in through another Martis panel with one redirect and a 60-second, one-time PASETO `v4.public` token (Ed25519, `ext-sodium`, no new dependency). The consumer (`Martis\Sso\Providers\SignedTokenProvider`) checks the signature against every configured public key (rotation), issuer, audience, expiry, age, an optional environment lock, the `state` kept in the session and a one-time `jti`, each refusal with its own reason. The issuing panel enables `martis.auth.sso.issuer` and serves `GET /{martis}/sso/issue/{audience}` behind the full panel stack: it redirects only to the audience's configured `callback_url`, can require a gate ability per audience (`ability`), refuses during an impersonation and carries `email_verified`. `Martis\Sso\SignedToken\TokenIssuer`, `php artisan martis:sso:keys`, `martis:sso <name> --driver=signed-token` and `martis:sso <audience> --issuer`. See [SSO, section 18](docs/sso.md).
+- **Reason for a refused SSO callback.** `Martis\Sso\SsoException` (`reason`, optional `messageKey` shown on the login page), event `Martis\Events\SsoFailed` (provider, reason, exception) and a log line with `provider`, `reason`, `request_id`, `exception` and a message with credentials masked. Every refusal has a reason; a plain exception is `unknown` and keeps the generic text.
+- **SSO hooks accumulate.** `MartisSso::afterLogin($callback, provider: 'azure')` appends and can be limited to a provider; `onNoRoleMatchUsing()` takes a provider too (provider-specific wins over global); `MartisSso::forgetHooks()`; event `Martis\Events\SsoLoggedIn` (user, identity, provider) once per sign-in.
+- **SSO session limits.** Per provider `max_session_minutes` (an SSO session older than that goes through the provider again: 401 with `sso_reauth_url` for JSON, a redirect otherwise) and `revalidate_every_minutes` with the `Martis\Sso\Contracts\RevalidatesSessions` contract (`stillValid($user, $externalId)`). `MartisSso::revokeFor($userId)` ends a user's SSO sessions on every session driver, cycles the remember token and, on the `database` driver, deletes the session rows. `logout_url` may be an invokable class. Middleware `martis.sso.session` joins the authenticated stack.
+- **Switch for password sign-in.** `martis.auth.password_login.enabled` (`MARTIS_PASSWORD_LOGIN_ENABLED`, default `true`): off, the login page shows the SSO buttons only, `POST /login` and `POST /api/auth/login` answer 403 before the controller, and password reset is off. `break_glass_emails` lists addresses that may still sign in with a password (form at `?password_login=1`); every other outcome is the same 403. A warning is logged when the panel is left with no way in.
+- **Challenge (captcha) hook.** `martis.auth.challenge` (`enabled`, `verifier`, `site_key`, `applies_to`) and the `Martis\Contracts\ChallengeVerifier` contract: middleware `martis.challenge:<surface>` on the login, forgot, reset, magic-link, register and invitation POST routes refuses with 422 when the verifier says no or fails (fail closed). The forms render the component registered as `auth:challenge` and send its token as `challenge_token`; `useAuthChallenge`, `AuthChallenge` and `AuthChallengeProps` are exported from `@martis/runtime`. A Cloudflare Turnstile example is in [Authentication](docs/authentication.md).
+- **Toast lifetime.** `martis.toast.durations` per severity in milliseconds (`null` = until closed; defaults unchanged at 5000) and per call `addToast(type, message, { life, dismissOnNavigate })`.
+- **The SPA follows the intended URL after sign-in.** The login, 2FA challenge and forced password change responses carry `intended_url` (a same-origin path under the panel only), so a visitor sent to sign in on the way to a page lands on it.
+- `sync_user_attributes` accepts `external_id`; per provider `link_by_email` and `provision_on_deny`.
+
+### Changed
+
+- **A refused SSO identity is not written.** Roles are decided before the local user is created or updated; where the role mapping needs the user, the write runs in a transaction that is rolled back on a refusal. `provision_on_deny => true` restores the old order.
+- **`remember => true` cannot be combined with `max_session_minutes` or `revalidate_every_minutes`** on a provider: it throws, naming the keys.
+- A config value that is set but unusable throws naming its key: `identity_match_attribute`, `identity_external_id_column`, `logout_url`, the session limits, the challenge and password-login blocks, `toast.durations`.
+- A failure after the user step of an SSO callback (a throwing hook, a unique index) is a refusal on the login page with `SsoFailed`, not a 500.
+
+### Fixed
+
+- **`identity_match_attribute = external_id` never stored the id**, so the second sign-in of an auto-created user was refused. The id column is written on create, an existing row can be linked by email when `link_by_email` is on, and a row holding a different id is never re-linked.
+- **`php artisan martis:sso azure` did not insert its block** into a freshly published config: the commented example counted as "already declared".
+
 ## [2.20.0] — 2026-11-11
 
 Minor release from a consumer change request: opt-in performance building blocks for apps with many resources and extensions. Every default keeps the previous behaviour, apart from a `?v=` version suffix on the extension bundle URL. Also ships the November dependency updates. Republish the assets (`php artisan martis:publish-assets`) and, to use lazy components, the extension scaffold. Read [Upgrading to v2.20.0](docs/upgrading.md#upgrading-to-v2200-from-v219x).
