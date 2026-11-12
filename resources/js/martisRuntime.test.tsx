@@ -119,6 +119,8 @@ describe('martisRuntime', () => {
         // Field renderer (v1.14.0)
         expect(martisRuntime.FieldInput).toBeTypeOf('function')
         expect(martisRuntime.FieldDisplay).toBeTypeOf('function')
+        expect(martisRuntime.FieldError).toBeTypeOf('function')
+        expect(martisRuntime.useFieldError).toBeTypeOf('function')
 
         // Relation parent provider (v1.38.0)
         expect(martisRuntime.NestedParentProvider).toBeTypeOf('function')

@@ -2453,6 +2453,48 @@ declare function FieldInput({ field, value, onChange, error, nestedErrors, resou
     formValues?: Record<string, unknown>;
 }): react_jsx_runtime.JSX.Element;
 
+interface FieldErrorProps {
+    /** The validation message. Nothing renders while it is empty. */
+    error?: string | null;
+    /** Optional element id, for `aria-describedby` on the input (see `useFieldError`). */
+    id?: string;
+}
+/**
+ * The inline validation message of a form field: the warning icon and the
+ * message in the `martis-input-error` style, announced as an alert.
+ *
+ * `FieldWrapper` draws its `error` prop with it, and a custom input that
+ * draws its own error uses it to look like the rest of the form.
+ */
+declare function FieldError({ error, id }: FieldErrorProps): react_jsx_runtime.JSX.Element | null;
+interface UseFieldErrorResult {
+    hasError: boolean;
+    /** The message, or `''` when there is none. */
+    message: string;
+    /** Id to give `<FieldError id={errorId} />`. Stable for the component's lifetime. */
+    errorId: string;
+    /** Spread onto the input: `aria-invalid` and `aria-describedby` while there is an error, nothing otherwise. */
+    invalidProps: {
+        'aria-invalid'?: true;
+        'aria-describedby'?: string;
+    };
+}
+/**
+ * State for a custom input that shows its validation error.
+ *
+ * ```tsx
+ * const { error: message } = props            // the FieldInputProps `error`
+ * const { errorId, invalidProps } = useFieldError(message)
+ * return (
+ *   <>
+ *     <input {...invalidProps} />
+ *     <FieldError error={message} id={errorId} />
+ *   </>
+ * )
+ * ```
+ */
+declare function useFieldError(error?: string | null): UseFieldErrorResult;
+
 interface DrawerShellProps {
     /** Title displayed in the header. */
     title: string;
@@ -7906,6 +7948,8 @@ declare const martisRuntime: {
     readonly NotFoundPage: typeof NotFoundPage;
     readonly FieldInput: typeof FieldInput;
     readonly FieldDisplay: typeof FieldDisplay;
+    readonly FieldError: typeof FieldError;
+    readonly useFieldError: typeof useFieldError;
     readonly NestedParentProvider: typeof NestedParentProvider;
     readonly useMartisForm: typeof useMartisForm;
     readonly FieldsForm: typeof FieldsForm;
@@ -7967,5 +8011,5 @@ declare const martisRuntime: {
  */
 type MartisRuntime = typeof martisRuntime;
 
-export { ApiError, AuthChallenge, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, PasswordChangeRequiredError, ResourceIcon, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, apiPath, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, htmlTooltip, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, parseAuthLinkFragment, pathSegment, reloadOnStaleChunk, resolveColor, routePath, routeRegistry, trustHtmlTooltip, useAuth, useAuthChallenge, useAuthLinkParams, useDashboardFilters, useDynamicCrumb, useError, useEscapeLayer, useIsMobile, useMartisForm, useModalFocus, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRefreshRecord, useRevalidateOnFocus, useRunAction, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard, withQuery };
+export { ApiError, AuthChallenge, AuthFrame, AuthProvider, ClearButton, DrawerShell, Dropdown, EmailVerificationRequiredError, FieldDisplay, FieldError, FieldInput, FieldsForm, Footer, ForbiddenPage, MartisLoader, MultiSelect, NestedParentProvider, NotFoundPage, OverridePropsProvider, PasswordChangeRequiredError, ResourceIcon, Sidebar, Sparkline, Tooltip, Topbar, TwoFactorRequiredError, accentColor, addShortcut, api, apiPath, applyDocumentDirection, avatarColorForSeed, chartPalette, componentRegistry, config, cssVar, martisRuntime as default, disableShortcut, htmlTooltip, iconRegistry, layoutRegistry, listShortcuts, loadLocale, martisEventBus, mutedTextColor, parseAuthLinkFragment, pathSegment, reloadOnStaleChunk, resolveColor, routePath, routeRegistry, trustHtmlTooltip, useAuth, useAuthChallenge, useAuthLinkParams, useDashboardFilters, useDynamicCrumb, useError, useEscapeLayer, useFieldError, useIsMobile, useMartisForm, useModalFocus, useModalHistoryLock, useOverrideProps, useOverridePropsOptional, usePageTitle, usePreferences, usePreferencesOptional, usePrefersReducedMotion, useRefreshRecord, useRevalidateOnFocus, useRunAction, useToast, useToastSafe, useToolFields, useUnsavedChangesGuard, withQuery };
 export type { ActionResponseModalProps, ActiveFilters, AuthChallengeProps, AuthChallengeState, AuthLinkParams, ChallengeSurface, DashboardFiltersContextValue, DashboardFiltersOptions, DashboardFiltersUpdate, DrawerShellProps, DropdownProps, EventBusEvents, FieldDefinition, FieldDisplayProps, FieldInputProps, HtmlTooltipProps, LayoutProps, MartisForm, MartisFormOptions, MartisLoaderConfig, MartisLoaderProps, MartisRuntime, ModalFocusOptions, MultiSelectProps, NavigationGroup, NavigationGroupChild, NavigationItem, NavigationNestedGroup, NestedParent, OverrideProps, RefreshRecord, RegisteredRoutePageProps, ResourceIconProps, RouteRegistration, RunAction, RunActionOptions, RunActionResult, SetDashboardFilters, Shortcut, ShortcutOptions, ToolDescriptor, TooltipProps, TopbarSlotPlacement, TopbarSlotProps, UseToolFieldsResult };

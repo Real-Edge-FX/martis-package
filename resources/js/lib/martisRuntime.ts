@@ -59,6 +59,7 @@ import { Sidebar } from '@/components/Sidebar'
 import { Topbar } from '@/components/Topbar'
 import { Footer } from '@/components/Footer'
 import { FieldInput, FieldDisplay } from '@/components/fields/FieldRenderer'
+import { FieldError, useFieldError } from '@/components/fields/FieldError'
 import { NestedParentProvider } from '@/components/fields/NestedParentContext'
 import { FieldsForm } from '@/components/fields/FieldsForm'
 import { DrawerShell } from '@/components/overrides/DrawerShell'
@@ -173,6 +174,13 @@ export const martisRuntime = {
   // shell must also load the published martis.css stylesheet.
   FieldInput,
   FieldDisplay,
+
+  // Validation error of a custom input (since v2.23.0). The form hands the
+  // message to the input as `error` and draws nothing itself; `useFieldError`
+  // yields `{ hasError, message, errorId, invalidProps }` and `<FieldError>`
+  // draws the message in the form's own style. See docs/overrides.md.
+  FieldError,
+  useFieldError,
 
   // Relation parent provider (since v1.38.0). The relationship panels a
   // FieldDisplay / FieldInput renders list the related records of the

@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, type ReactNode } from 'react'
-import { WarningCircleIcon } from '@phosphor-icons/react'
+import { FieldError } from './FieldError'
 import { FieldLabelTooltip } from './FieldLabelTooltip'
 import { sanitizeMarkup } from '@/lib/sanitizeHtml'
 
@@ -124,10 +124,7 @@ export function FieldWrapper({
       )}
       {children}
       {error ? (
-        <span className="martis-input-error" role="alert">
-          <WarningCircleIcon size={12} weight="fill" aria-hidden="true" />
-          {error}
-        </span>
+        <FieldError error={error} />
       ) : help ? (
         <span
           id={helpId}
