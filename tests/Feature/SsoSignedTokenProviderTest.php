@@ -13,6 +13,7 @@ use Martis\Sso\SignedToken\Reason;
 use Martis\Sso\SsoException;
 use Martis\Sso\SsoIdentity;
 use Martis\Sso\SsoManager;
+use Mockery\MockInterface;
 use Symfony\Component\Process\Process;
 
 require_once __DIR__.'/../Support/signed-token.php';
@@ -37,7 +38,7 @@ function stProvider(string $name = 'panel_a'): SignedTokenProvider
  * A mock of the cache repository the one-time store resolves (the
  * configured SSO store, else the default one).
  */
-function stCacheMock(): Mockery\MockInterface
+function stCacheMock(): MockInterface
 {
     $repository = Mockery::mock(Repository::class);
     Cache::shouldReceive('store')->andReturn($repository);

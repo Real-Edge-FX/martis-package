@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.22.0] — 2026-11-12
+
+Minor release that hardens the signed-token SSO of v2.21.0 after a review of the replay surface: the one-time `jti` is used up before the state check, the state expires, the environment lock cannot be half configured, the issuer reports what it signs and refuses, the SSO cache store is configurable and the button label can be translated. Read [Upgrading to v2.22.0](docs/upgrading.md) first: three of the changes alter what a panel accepts or throws.
+
+### Security
+
+- **State fixation of the signed token is closed.** An attacker who started the flow at panel B (state `S` in their own session) could get a signed-in user of panel A to open `/{martis}/sso/issue/{audience}?state=S` by a top-level navigation. Panel A signed for that user with `S`, the callback failed the state check in the victim's browser, but the `jti` was recorded last, so the token stayed good for its lifetime and whoever read that URL (an access log, a proxy, an extension) could replay it in the attacker's browser and be signed in as the victim. The verifier now checks, in this order, the structure, the signature, the claims and times, the environment, the one-time `jti`, and only then the state: a validly signed, in-time token for this audience is used up by its first arrival whatever the state. A token refused before that point (bad signature, another audience, expired, another environment) is still not recorded. [SSO, section 18](docs/sso.md#security-notes) says what is left (an on-path party that blocks the victim's request) and why neither `Sec-Fetch-Site`, PKCE nor a consumer-signed state would help.
+- **The state expires after ten minutes.** The state `redirect()` keeps in the session carries its creation time and is refused (reason `state`) when older than 10 minutes, a class constant with no config key. It is still pulled once.
+- **The environment lock cannot be half configured.** `environment_claim` set while `environment` is not throws, naming both keys, in the consumer block and the issuer block. A consumer with no `environment` refuses a token that carries the environment claim (reason `environment`): the issuer is locked and the verifier would have ignored it.
+
+### Added
+
+- **Issuer audit events.** `Martis\Events\SsoTokenIssued` (user, audience, request id) and `Martis\Events\SsoIssueDenied` (user or null, audience, reason, request id), dispatched by the issue route. A refusal also logs a warning (`SSO token issue denied`) with the same `request_id`; the `SSO token issued` line keeps its text. Reasons: `unknown_audience` (only while the issuer is enabled: a disabled issuer stays a silent 404), `not_navigation`, `invalid_state`, `impersonating`, `forbidden`. The HTTP answers do not change, the audience is cut to 64 characters and reduced to printable ASCII, and neither the token nor the state reaches an event or a log line.
+- **`martis.auth.sso.cache_store`** (`MARTIS_SSO_CACHE_STORE`, `null` = the default store). One helper, `Martis\Sso\SsoCache`, owns the lookup and every SSO cache call uses it: the `jti` record, the revocation, the origin nonces, the ended-session markers and the Azure tenant lookup. The store must be shared by every server, must not evict early and must not be flushed on a deploy. A name that is not in `cache.stores` throws, naming the key.
+- **Translatable provider `label`.** `martis.auth.sso.providers.<name>.label` is a string or a map of `locale => string`, resolved on the login page the way `auth.copy` values are (exact locale, prefix, `en`, first entry), through the helper both now share (`resolveCopyValue` in `authCopy.ts`).
+
+### Changed
+
+- **A provider `label` that is neither a string nor a map of strings throws**, naming the key. It used to be dropped without a word.
+- A signed-token callback whose `jti` was already used answers `replayed` even when its state is also wrong (it answered `state` before).
+
 ## [2.21.0] — 2026-11-12
 
 Minor release from ten consumer requests about sign-in: a panel that signs in only through SSO, including through another Martis panel. It fixes `external_id` matching, stops publishing the `auth` config to the browser, and adds a signed-token provider, session limits and revocation for SSO sessions, a switch for password sign-in, a challenge (captcha) hook and configurable toast lifetimes. Four behaviours change without any config: read [Upgrading to v2.21.0](docs/upgrading.md#upgrading-to-v2210-from-v220x). Republish the assets (`php artisan martis:publish-assets`), the config and the extension shims.

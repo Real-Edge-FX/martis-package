@@ -6,8 +6,8 @@ use Illuminate\Auth\MustVerifyEmail as MustVerifyEmailTrait;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Foundation\Auth\User;
-use Illuminate\Support\Collection;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
@@ -20,6 +20,7 @@ use Martis\Http\Controllers\SsoIssuerController;
 use Martis\Sso\SignedToken\PasetoV4Public;
 use Martis\Sso\SignedToken\TokenIssuer;
 use Psr\Log\LoggerInterface;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 require_once __DIR__.'/../Support/signed-token.php';
 
@@ -858,7 +859,7 @@ it('cuts the audience to 64 characters and keeps printable ASCII only before it 
     try {
         app(SsoIssuerController::class)->issue($request, $hostile);
         $this->fail('the unknown audience was not refused');
-    } catch (Symfony\Component\HttpKernel\Exception\HttpException $e) {
+    } catch (HttpException $e) {
         expect($e->getStatusCode())->toBe(404);
     }
 
@@ -869,7 +870,7 @@ it('cuts the audience to 64 characters and keeps printable ASCII only before it 
     Event::fake([SsoIssueDenied::class]);
     try {
         app(SsoIssuerController::class)->issue($request, $hostile);
-    } catch (Symfony\Component\HttpKernel\Exception\HttpException) {
+    } catch (HttpException) {
     }
     Event::assertDispatched(SsoIssueDenied::class, fn (SsoIssueDenied $e) => $e->audience === 'a?b?[31m?c');
 });

@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Contracts\Cache\Repository;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Http\Request;
