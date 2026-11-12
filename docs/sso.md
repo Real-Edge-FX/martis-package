@@ -27,7 +27,7 @@ This document is the long-form reference. For a 30-second TL;DR see the **Quick 
 15. [Security considerations](#15-security-considerations)
 16. [Troubleshooting](#16-troubleshooting)
 17. [Test coverage](#17-test-coverage)
-18. [Signed token between two Martis apps (v2.21.0)](#18-signed-token-between-two-martis-apps-v2210)
+18. [Signed token between two Martis apps (v2.21.0, v2.22.0)](#18-signed-token-between-two-martis-apps-v2210-v2220)
 
 ---
 
@@ -418,7 +418,7 @@ The **Continue with Microsoft** button is there. Click → Azure consent screen 
 
 ### The cache store (v2.22.0)
 
-`martis.auth.sso.cache_store` (env `MARTIS_SSO_CACHE_STORE`) names the Laravel cache store, from `cache.stores`, that holds everything the SSO subsystem keeps in a cache: the signed token's one-time `jti` ([section 18](#18-signed-token-between-two-martis-apps-v2210)), the revocation time and the origin nonces ([Ending an SSO session](#ending-an-sso-session-age-revocation-revalidation-v2210)), the ended-session markers, and the Azure tenant lookup. Unset (`null`, the default) it is the application's default store, as before.
+`martis.auth.sso.cache_store` (env `MARTIS_SSO_CACHE_STORE`) names the Laravel cache store, from `cache.stores`, that holds everything the SSO subsystem keeps in a cache: the signed token's one-time `jti` ([section 18](#18-signed-token-between-two-martis-apps-v2210-v2220)), the revocation time and the origin nonces ([Ending an SSO session](#ending-an-sso-session-age-revocation-revalidation-v2210)), the ended-session markers, and the Azure tenant lookup. Unset (`null`, the default) it is the application's default store, as before.
 
 The store is **security state**, so it must be shared by every server of the panel (Redis, database or Memcached; `file` is per host), must not evict early, and must not be flushed on a deploy: a store that forgets a `jti` reopens a used token, and one that forgets a revocation reopens an ended session. Naming a store of its own keeps a `cache:clear` or a short-lived default store from touching them.
 
@@ -578,7 +578,7 @@ MartisSso::revokeFor($user->getKey());
 2. It drops every SSO-origin nonce of the user and cycles the user's remember token, so no remember cookie or SSO origin cookie signs them back in.
 3. On the **`database` session driver** it also deletes the user's rows of the `sessions` table. That ends **every** session of the user, including ones opened with a password, a magic link or an invitation, which the middleware cannot tell apart from the rest. The rows are matched by `sessions.user_id`; when the app's session guards sign in users of more than one table that column cannot be attributed to one person, so the rows are left alone (a warning is logged) and only the SSO sessions end, through step 1.
 
-A sign-in after the revocation works normally: its sign-in time is later. That includes the one the middleware's redirect starts: while the person's session at the IdP (or, with the [signed token](#18-signed-token-between-two-martis-apps-v2210), at the issuing panel) is alive they are signed in again at once, so a revocation that must hold is done at the IdP (or the issuing panel) as well, and `revokeFor()` on one panel never ends the sessions of another. The times are whole seconds, so a sign-in in the very second of the revocation counts as revoked.
+A sign-in after the revocation works normally: its sign-in time is later. That includes the one the middleware's redirect starts: while the person's session at the IdP (or, with the [signed token](#18-signed-token-between-two-martis-apps-v2210-v2220), at the issuing panel) is alive they are signed in again at once, so a revocation that must hold is done at the IdP (or the issuing panel) as well, and `revokeFor()` on one panel never ends the sessions of another. The times are whole seconds, so a sign-in in the very second of the revocation counts as revoked.
 
 A cache that cannot be **read** while the middleware looks for the revocation is reported and treated as "revoked" (fail closed: the session ends and the person signs in again). Because the revocation read runs on every SSO request, a cache outage ends every SSO session, fresh sign-ins included (sign in, the next request ends it, and so on) until the cache is back: that is the price of a revocation that cannot be skipped. A cache that cannot be **written** makes `revokeFor()` throw a `RuntimeException`, so a revocation that did not stick never looks as if it had. While an impersonation is active the session belongs to the operator who signed in through SSO, so the checks run against the operator.
 
@@ -907,7 +907,7 @@ Both routes register only when `auth.sso.enabled = true`. They're unauthenticate
 
 The `provider` segment is **whatever the user registered** — `azure`, `google`, `github`, `okta`, custom names. Routes only resolve if the provider is registered AND enabled. The segment must be the provider's **lower-case** name, exactly as its config key is spelled: `/sso/AZURE/callback` answers **404** (v2.21.0). The name used to be lowercased only to find the driver, so a path in another letter case ran the sign-in with every other setting of the provider (identity matching, role mapping, session limits, federated logout) read under a key that does not exist, that is, on the defaults.
 
-A third route belongs to the issuing side of the [signed token](#18-signed-token-between-two-martis-apps-v2210) (v2.21.0). It is always registered, runs the full protected stack, and answers 404 while `auth.sso.issuer.enabled` is false:
+A third route belongs to the issuing side of the [signed token](#18-signed-token-between-two-martis-apps-v2210-v2220) (v2.21.0). It is always registered, runs the full protected stack, and answers 404 while `auth.sso.issuer.enabled` is false:
 
 | Method | Path | Description |
 |---|---|---|
@@ -1347,7 +1347,7 @@ The counts grow with each release — see CI output for the live total.
 
 ---
 
-## 18. Signed token between two Martis apps (v2.21.0)
+## 18. Signed token between two Martis apps (v2.21.0, v2.22.0)
 
 Panel B signs its users in through panel A, when both are Martis apps, with one redirect and a short-lived, one-time token that panel A signs with a private key and panel B verifies with the matching public key. No OAuth server, no client secret, no new table.
 
@@ -1458,7 +1458,7 @@ The `reason` of `SsoIssueDenied` is one of its six constants:
 | `forbidden` | 403 | The audience's `ability` does not allow the user. |
 | `cannot_sign` | 500 | Signing failed: a user with no email, a `claims` class that throws or answers the wrong shape, an unusable issuer block. The denial is recorded first and then the exception goes on, so the 500 stays and nothing is hidden. |
 
-Refusals by the route's **middleware** (not signed in, 2FA not passed, email not verified, the `viewMartis` gate, throttle) happen before the controller and raise no event. A **disabled** issuer stays a silent 404: no line, no event. An audience name the route's own shape constraint rejects (more than 64 characters, a character outside letters, digits, `.`, `-`, `_`) never reaches the controller, so it is a plain 404 with no event either. The `audience` of an event or a line is cut to 64 characters and anything but printable ASCII in it becomes `?`: on the unknown-audience path it is whatever the caller put in the URL. `requestId` is the request's `X-Request-Id`, else a UUID, and is the `request_id` of the log line. The header is the caller's to write, so it is bounded: anything but printable ASCII becomes `?` and at most 128 bytes are kept (the failed-callback line of `SsoFailed` uses the same bound). Listeners run **inside the request**: a throwing listener of `SsoTokenIssued` stops the sign-in (fail closed), and one of `SsoIssueDenied` turns the denial into a 500, so keep them short and let them catch their own failures. Nothing of the token or of the caller's `state` is in an event or a line.
+Refusals by the route's **middleware** (not signed in, 2FA not passed, email not verified, the `viewMartis` gate, throttle) happen before the controller and raise no event. A **disabled** issuer stays a silent 404: no line, no event. An audience name the route's own shape constraint rejects (more than 64 characters, a character outside letters, digits, `.`, `-`, `_`) never matches the issue route, so it never reaches the controller: the panel's catch-all route answers it with the SPA shell (a 200 page, not a 404), and no event is raised. Only a name of a valid shape that is not configured is a 404 with `unknown_audience`. The `audience` of an event or a line is cut to 64 characters and anything but printable ASCII in it becomes `?`: on the unknown-audience path it is whatever the caller put in the URL. `requestId` is the request's `X-Request-Id`, else a UUID, and is the `request_id` of the log line. The header is the caller's to write, so it is bounded: anything but printable ASCII becomes `?` and at most 128 bytes are kept (the failed-callback line of `SsoFailed` uses the same bound). Listeners run **inside the request**: a throwing listener of `SsoTokenIssued` stops the sign-in (fail closed), and one of `SsoIssueDenied` turns the denial into a 500, so keep them short and let them catch their own failures. Nothing of the token or of the caller's `state` is in an event or a line. The same holds for a stack trace of the signed-token classes: the `state`, the token, the message and the secret key are `#[\SensitiveParameter]` parameters, so PHP prints `SensitiveParameterValue` in their place even with `zend.exception_ignore_args` off (the development default), including in the trace Laravel logs for a `cannot_sign` 500. That covers the package's own frames; the arguments of your own `claims` class, listener or middleware are yours to mark.
 
 ```php
 use Illuminate\Support\Facades\Event;
@@ -1571,6 +1571,7 @@ The `jti` is recorded (`Cache::add`, kept until the token could not be accepted 
 ### Security notes
 
 - **The token is in a URL.** It travels in the query string of the callback URL, so it can reach browser history and any access log of that path. The mitigations are built in: it lives 60 seconds by default, is accepted once, is bound to the browser session that started the flow through `state`, and the issue response says `Referrer-Policy: no-referrer` and `Cache-Control: no-store`. Operators should keep query strings out of the access logs of `/{martis}/sso/{provider}/callback` (nginx: log `$uri` instead of `$request_uri` for that location; most load balancers can drop the query from the logged path).
+- **A configuration error is a 500, not a refusal.** An unusable key of the provider block (`environment_claim` set, a bad `public_keys` entry, an empty `issuer`), an unusable `martis.auth.sso.cache_store` or a missing `ext-sodium` throws on the callback, naming the key, the same whether the callback's middleware ran or the provider is used alone; only a token or state the verifier refuses (the reasons above) is a refusal with the generic text on the login page and an `SsoFailed` event.
 - **The first arrival of a valid token spends it.** A request that reaches the callback with a signature-valid, in-time token uses it up, whatever it is and whether or not a session came with it. A gateway or a link scanner that fetches the callback URL with a `GET` ahead of the browser (corporate URL rewriting, an email-security sandbox that follows redirects) breaks that sign-in with `replayed`. A `HEAD` request on the callback of a signed-token provider is answered **405** before anything is read or recorded, so a scanner that probes with `HEAD` first does not spend the token.
 - **The cache must be shared.** The one-time `jti` lives in Laravel's default cache store, or in the one `martis.auth.sso.cache_store` names ([The cache store](#the-cache-store-v2220)). With several servers use a shared store (Redis, database, Memcached); the `array` and `file` stores are per process or per host, and the `null` store refuses every sign-in as `replayed`. A cache that is down refuses sign-ins.
 - **Panel B trusts what panel A signs about the person.** Two things, and neither is a flaw to patch: they are what a single sign-on is.

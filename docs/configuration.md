@@ -873,7 +873,7 @@ Six keys in `config/martis.php` take a callable instead of a value:
 | `profile.avatar.url_resolver` | `string $storedPath` | The avatar's public URL (`string`). |
 | `auth.sso.providers.{provider}.role_source_callable` | `string $externalId, string $accessToken` | The external role names (`array<int, string>`). See [SSO](sso.md#role_source--where-external-role-names-come-from). |
 | `auth.sso.providers.{provider}.role_callable` | `array $externalRoles, ?User $user, string $provider` | The local roles (`Collection`). See [SSO](sso.md#role_strategy--how-to-map-external-names-to-local-roles). |
-| `auth.sso.issuer.claims` | `Authenticatable $user, string $audience` | The claims to add to, or replace in, the signed SSO token (`array<string, mixed>`, v2.21.0). See [SSO](sso.md#18-signed-token-between-two-martis-apps-v2210). |
+| `auth.sso.issuer.claims` | `Authenticatable $user, string $audience` | The claims to add to, or replace in, the signed SSO token (`array<string, mixed>`, v2.21.0). See [SSO](sso.md#18-signed-token-between-two-martis-apps-v2210-v2220). |
 
 `php artisan config:cache` writes the merged config with `var_export()`, so only strings, numbers, booleans and arrays survive it. Two forms of callable do, so use one of them:
 
