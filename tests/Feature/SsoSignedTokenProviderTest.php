@@ -342,8 +342,12 @@ it('pulls the state from the session once', function () {
 
     expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe('accepted');
     expect($flow['session']->has('martis_sso_state.panel_a'))->toBeFalse();
-    // The same token and state again: no state left in the session.
-    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::STATE);
+    // The same token and state again: the jti was used up by the first arrival, before the state.
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::REPLAYED);
+
+    // A fresh token for the same state: no state is left in the session.
+    $fresh = stSign(stClaims($flow['state']), $this->keys['secret']);
+    expect(stReason(stProvider(), $flow['session'], $fresh, $flow['state']))->toBe(Reason::STATE);
 });
 
 it('refuses a replayed jti', function () {
@@ -389,15 +393,61 @@ it('does not burn the jti of a token the verifier rejected', function () {
     expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe('accepted');
 });
 
-it('does not burn the jti of a token refused for its state', function () {
+it('uses up the jti of a validly signed token even when its state is wrong (state fixation)', function () {
     $flow = stBegin(stProvider());
     $token = stSign(stClaims($flow['state']), $this->keys['secret']);
 
-    expect(stReason(stProvider(), $flow['session'], $token, str_repeat('x', 43)))->toBe(Reason::STATE);
+    // The victim's browser has another session: the state does not match, and the token is spent anyway.
+    expect(stReason(stProvider(), stSession(), $token, $flow['state']))->toBe(Reason::STATE);
 
-    // The person starts over with the same state and the same token: the jti was never recorded.
+    // The attacker's browser holds the state and gets the token back from a log: it is already used.
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::REPLAYED);
+});
+
+it('uses up the jti when the state query parameter is missing or differs', function (?string $query) {
+    $flow = stBegin(stProvider());
+    $token = stSign(stClaims($flow['state']), $this->keys['secret']);
+
+    expect(stReason(stProvider(), $flow['session'], $token, $query))->toBe(Reason::STATE);
+
     $flow['session']->put('martis_sso_state.panel_a', $flow['state']);
-    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe('accepted');
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::REPLAYED);
+})->with(['missing' => [null], 'different' => [str_repeat('x', 43)]]);
+
+it('uses up the jti of a token whose own state claim differs', function () {
+    $flow = stBegin(stProvider());
+    $token = stSign(stClaims(str_repeat('y', 43)), $this->keys['secret']);
+
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::STATE);
+    expect(stReason(stProvider(), $flow['session'], $token, str_repeat('y', 43)))->toBe(Reason::REPLAYED);
+});
+
+it('does not use up the jti of a token refused before the one-time check', function (array $claims, string $reason) {
+    $flow = stBegin(stProvider());
+    $jti = bin2hex(random_bytes(16));
+    $token = stSign(stClaims($flow['state'], $claims + ['jti' => $jti]), $this->keys['secret']);
+
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe($reason);
+
+    // The same jti in a good token is still usable: nothing was recorded.
+    $flow = stBegin(stProvider());
+    $good = stSign(stClaims($flow['state'], ['jti' => $jti]), $this->keys['secret']);
+    expect(stReason(stProvider(), $flow['session'], $good, $flow['state']))->toBe('accepted');
+})->with([
+    'another audience' => [['aud' => 'https://elsewhere.example'], Reason::AUDIENCE],
+    'another issuer' => [['iss' => 'https://elsewhere.example'], Reason::ISSUER],
+    'expired' => [['iat' => '2020-01-01T00:00:00+00:00', 'exp' => '2020-01-01T00:01:00+00:00'], Reason::EXPIRED],
+]);
+
+it('does not use up the jti of a token with a bad signature', function () {
+    $flow = stBegin(stProvider());
+    $claims = stClaims($flow['state']);
+    $forged = stSign($claims, stKeys()['secret']);
+
+    expect(stReason(stProvider(), $flow['session'], $forged, $flow['state']))->toBe(Reason::BAD_SIGNATURE);
+
+    $genuine = stSign($claims, $this->keys['secret']);
+    expect(stReason(stProvider(), $flow['session'], $genuine, $flow['state']))->toBe('accepted');
 });
 
 it('checks the signature before any claim', function () {

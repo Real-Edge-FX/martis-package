@@ -230,9 +230,9 @@ it('refuses the same callback URL a second time', function () {
     Event::fake([SsoFailed::class]);
     $this->get($callback)->assertRedirect(route('martis.login'));
 
-    // The state was pulled by the first use, so it is the state that refuses here.
+    // The jti is used up before the state is looked at (v2.22.0), so it is the jti that refuses here.
     expect(auth()->check())->toBeFalse();
-    Event::assertDispatched(SsoFailed::class, fn (SsoFailed $e) => $e->reason === 'state');
+    Event::assertDispatched(SsoFailed::class, fn (SsoFailed $e) => $e->reason === 'replayed');
 });
 
 it('refuses the same callback URL on the jti when the state is back in the session', function () {
@@ -277,6 +277,35 @@ it('refuses a token minted for a browser session other than the one that started
 
     expect(auth()->check())->toBeFalse();
     Event::assertDispatched(SsoFailed::class, fn (SsoFailed $e) => $e->reason === 'state');
+});
+
+it('does not let the attacker replay, in their own browser, a token the victim browser failed on the state', function () {
+    // The attacker starts the flow in their browser and has the signed-in victim open the issue URL.
+    $start = $this->get('/martis/sso/panel_a/redirect');
+    $toIssuer = (string) $start->headers->get('Location');
+    $attackerSession = session()->all();
+
+    $issue = $this->actingAs($this->issuerUser)
+        ->withSession([TwoFactorPass::SESSION_KEY => (string) $this->issuerUser->getKey()])
+        ->get($toIssuer);
+    $callback = (string) $issue->headers->get('Location');
+
+    // The callback lands in the victim's browser: no state of its own, so it fails there.
+    $this->flushSession();
+    auth()->logout();
+    Event::fake([SsoFailed::class]);
+    $this->get($callback)->assertRedirect(route('martis.login'));
+    Event::assertDispatched(SsoFailed::class, fn (SsoFailed $e) => $e->reason === 'state');
+    expect(auth()->check())->toBeFalse();
+
+    // The URL leaks (an access log) and is opened in the attacker's browser, which holds the matching state.
+    $this->flushSession();
+    $this->withSession($attackerSession);
+    Event::fake([SsoFailed::class]);
+    $this->get($callback)->assertRedirect(route('martis.login'));
+
+    expect(auth()->check())->toBeFalse();
+    Event::assertDispatched(SsoFailed::class, fn (SsoFailed $e) => $e->reason === 'replayed');
 });
 
 it('answers 404 to a callback path in another letter case, so an account is never adopted under defaults', function () {

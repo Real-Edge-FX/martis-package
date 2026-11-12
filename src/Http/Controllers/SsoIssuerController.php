@@ -29,7 +29,15 @@ use Martis\Support\TranslatedLine;
  * and to nothing from the request, with the signed token and the `state`
  * appended. The token is in the query string of that URL: it lives
  * `ttl_seconds`, is used once, and the response says `no-store` and
- * `no-referrer`. Keep query strings of the callback path out of access logs.
+ * `no-referrer`. Keep query strings of the callback path and of this issue
+ * path out of access logs.
+ *
+ * A top-level navigation is what the legitimate flow is, so any page can send
+ * a signed-in user here with a `state` the attacker chose (state fixation).
+ * The package cannot refuse that here (`Sec-Fetch-Site` is `cross-site` in the
+ * legitimate flow too); what protects the user is the verifier, which uses up
+ * the token's one-time `jti` before it checks the state (v2.22.0), so the
+ * victim's own failed callback burns the token a log could leak.
  *
  * No token is issued while an impersonation is active (403): the session
  * belongs to the operator, and the token would be the impersonated user's.

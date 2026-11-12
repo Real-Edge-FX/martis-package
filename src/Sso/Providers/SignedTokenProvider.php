@@ -30,14 +30,19 @@ use Throwable;
  *   resolveIdentity()  the callback's `token` (PASETO v4.public, see
  *                      {@see PasetoV4Public}) is checked, in this order: its
  *                      shape, its signature against every configured key, its
- *                      claims (issuer, audience, expiry, age, environment),
- *                      the state (session = query = claim, pulled once), and
- *                      last the one-time `jti`
+ *                      claims (issuer, audience, expiry, age, environment), the
+ *                      one-time `jti`, and last the state (session = query =
+ *                      claim, pulled once)
  *
  * Every refusal is an {@see SsoException} with its own
- * {@see Reason}. The jti is recorded last so a token this verifier rejected
- * for any other reason is not used up. Nothing about the token or a key goes
- * into a message.
+ * {@see Reason}. The jti is recorded after the checks that say the token is
+ * genuine, in time and meant for this verifier, and BEFORE the state (v2.22.0):
+ * the first arrival of such a token uses it up whatever the state says, so a
+ * callback that fails the state check in a victim's browser (an attacker made
+ * the victim's signed-in browser fetch a token for the attacker's state) leaves
+ * nothing to replay from a log. A token refused earlier (bad signature, other
+ * audience, expired, other environment) is not recorded. Nothing about the
+ * token or a key goes into a message.
  *
  * Not OIDC and not OAuth: a Martis panel signs for its own users, and one
  * other panel trusts that key. For a third-party IdP use the Socialite
@@ -109,11 +114,16 @@ final class SignedTokenProvider implements SsoProviderContract
 
         $this->checkEnvironment($claims, $settings);
 
-        // 3. The browser session that started the flow.
-        $this->checkState($request, (string) $claims['state']);
-
-        // 4. One use, recorded last.
+        // 3. One use, recorded BEFORE the state is looked at: a token that is
+        //    validly signed, in time and for this audience is used up by the
+        //    first request that carries it, whatever that request's state is.
+        //    A token whose callback fails the state check in a victim's
+        //    browser (state fixation) must not stay good for its lifetime in
+        //    the access log of whoever reads that URL.
         $this->useOnce((string) $claims['jti'], min($exp, $iat + $settings->maxAgeSeconds) + $skew - $now);
+
+        // 4. The browser session that started the flow.
+        $this->checkState($request, (string) $claims['state']);
 
         $roles = $claims[$settings->roleClaim] ?? [];
         $name = $claims['name'] ?? null;
