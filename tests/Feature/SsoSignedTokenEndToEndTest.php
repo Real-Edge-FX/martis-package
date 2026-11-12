@@ -230,8 +230,31 @@ it('refuses the same callback URL a second time', function () {
     Event::fake([SsoFailed::class]);
     $this->get($callback)->assertRedirect(route('martis.login'));
 
+    // The state was pulled by the first use, so it is the state that refuses here.
     expect(auth()->check())->toBeFalse();
-    Event::assertDispatched(SsoFailed::class);
+    Event::assertDispatched(SsoFailed::class, fn (SsoFailed $e) => $e->reason === 'state');
+});
+
+it('refuses the same callback URL on the jti when the state is back in the session', function () {
+    $start = $this->get('/martis/sso/panel_a/redirect');
+    $toIssuer = (string) $start->headers->get('Location');
+    parse_str((string) parse_url($toIssuer, PHP_URL_QUERY), $query);
+    $issue = $this->actingAs($this->issuerUser)
+        ->withSession([TwoFactorPass::SESSION_KEY => (string) $this->issuerUser->getKey()])
+        ->get($toIssuer);
+    $callback = (string) $issue->headers->get('Location');
+
+    $this->get($callback)->assertRedirect();
+    expect(auth()->check())->toBeTrue();
+
+    // Two tabs, a session restore: the state is reproduced. The one-time store is the second lock.
+    auth()->logout();
+    session()->put('martis_sso_state.panel_a', $query['state']);
+    Event::fake([SsoFailed::class]);
+    $this->get($callback)->assertRedirect(route('martis.login'));
+
+    expect(auth()->check())->toBeFalse();
+    Event::assertDispatched(SsoFailed::class, fn (SsoFailed $e) => $e->reason === 'replayed');
 });
 
 it('refuses a token minted for a browser session other than the one that started the flow', function () {

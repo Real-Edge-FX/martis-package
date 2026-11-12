@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Martis\Sso\Providers\AzureProvider;
 use Martis\Sso\Providers\SignedTokenProvider;
@@ -423,10 +424,10 @@ it('asks the cache to add the jti for the time the token can still be used', fun
     $token = stSign(stClaims($flow['state'], ['iat' => stTime($now), 'exp' => stTime($now + 60)]), $this->keys['secret']);
 
     Cache::shouldReceive('add')->once()->withArgs(function (string $key, mixed $value, mixed $ttl): bool {
-        // min(exp, iat + max_age) + skew = 60 + 30 seconds, give or take the clock.
+        // min(exp, iat + max_age) + skew + 1 = 60 + 30 + 1 seconds, give or take the clock.
         return str_starts_with($key, 'martis_sso_jti:panel_a:')
             && $value === true
-            && is_int($ttl) && $ttl >= 88 && $ttl <= 91;
+            && is_int($ttl) && $ttl >= 89 && $ttl <= 92;
     })->andReturn(true);
 
     expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe('accepted');
@@ -605,3 +606,38 @@ it('carries the verification state of the issuer on the identity', function (boo
 
     expect($identity->emailVerified)->toBe($verified);
 })->with([true, false]);
+
+// -----------------------------------------------------------------------------
+// The one-time record outlives the last second the token is accepted (review L1)
+// -----------------------------------------------------------------------------
+
+it('still refuses the jti on the last second the token would be accepted, and not for longer than that', function () {
+    Carbon::setTestNow(Carbon::createFromTimestamp(1_800_000_000));
+    $provider = stProvider();
+    $begin = stBegin($provider);
+    $now = 1_800_000_000;
+    $token = stSign(stClaims($begin['state'], ['iat' => stTime($now), 'exp' => stTime($now + 60)]), $this->keys['secret']);
+
+    expect(stReason($provider, $begin['session'], $token, $begin['state']))->toBe('accepted');
+
+    // The last accepted second is min(exp, iat + max_age) + skew = now + 90. The state is put back
+    // so that the one-time store is the only lock left.
+    Carbon::setTestNow(Carbon::createFromTimestamp($now + 90));
+    $begin['session']->put('martis_sso_state.panel_a', $begin['state']);
+    expect(stReason($provider, $begin['session'], $token, $begin['state']))->toBe(Reason::REPLAYED);
+
+    // One second later the token is expired, whatever the store holds.
+    Carbon::setTestNow(Carbon::createFromTimestamp($now + 91));
+    $begin['session']->put('martis_sso_state.panel_a', $begin['state']);
+    expect(stReason($provider, $begin['session'], $token, $begin['state']))->toBe(Reason::EXPIRED);
+    Carbon::setTestNow();
+});
+
+it('keeps the record at least one second, even for a token that expires at once', function () {
+    $flow = stBegin(stProvider());
+    $now = time();
+    $token = stSign(stClaims($flow['state'], ['iat' => stTime($now - 200), 'exp' => stTime($now - 31)]), $this->keys['secret']);
+
+    // Refused as expired before the store is touched: nothing is recorded for it.
+    expect(stReason(stProvider(), $flow['session'], $token, $flow['state']))->toBe(Reason::EXPIRED);
+});

@@ -289,8 +289,11 @@ final class SignedTokenProvider implements SsoProviderContract
     }
 
     /**
-     * Record the `jti` for as long as the token could still be accepted. The
-     * cache must be shared by every server of the panel and must not evict
+     * Record the `jti` for as long as the token could still be accepted, plus
+     * one second: the time checks accept the very last second of that window,
+     * while a cache entry is gone at its expiry second, so without the extra
+     * second the record vanishes on the last instant the token is still good.
+     * The cache must be shared by every server of the panel and must not evict
      * early; when it fails the token is refused, not let through.
      */
     private function useOnce(string $jti, int $seconds): void
@@ -298,7 +301,7 @@ final class SignedTokenProvider implements SsoProviderContract
         $key = 'martis_sso_jti:'.$this->name.':'.hash('sha256', $jti);
 
         try {
-            $added = Cache::add($key, true, max(1, $seconds));
+            $added = Cache::add($key, true, max(1, $seconds + 1));
         } catch (Throwable $e) {
             throw new SsoException('Signed token refused: the one-time store failed.', Reason::REPLAY_STORE, null, $e);
         }
