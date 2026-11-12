@@ -6,6 +6,7 @@ use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Testing\TestResponse;
 
 // ===========================================================================
 // The intended URL after a JSON sign-in (v2.21.0).
@@ -51,7 +52,7 @@ function iuTwoFactor(): array
     ];
 }
 
-function iuSignIn(string $intended): Illuminate\Testing\TestResponse
+function iuSignIn(string $intended): TestResponse
 {
     return test()->withSession(['url.intended' => $intended])
         ->postJson('/martis/api/auth/login', ['email' => 'person@example.com', 'password' => IU_PASSWORD]);
