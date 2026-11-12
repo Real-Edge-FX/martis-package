@@ -48,7 +48,8 @@ use Throwable;
  * token or a key goes into a message.
  *
  * The callback route runs everything up to and including the `jti` record in a
- * middleware ahead of the throttle ({@see spend()}), so a throttled (429)
+ * middleware that spends the token and only then applies the throttle
+ * ({@see spend()}), so a throttled (429)
  * callback has still used the token up; {@see resolveIdentity()} then only
  * checks the state. Used alone, it does every step itself.
  *
@@ -99,8 +100,8 @@ final class SignedTokenProvider implements SsoProviderContract
      * outcome kept on the request for {@see resolveIdentity()}. A refusal is
      * kept, not thrown, and so is a configuration error.
      *
-     * The callback route runs it from a middleware placed BEFORE the throttle
-     * ({@see SpendSignedToken}), so that using the
+     * The callback route runs it from a middleware that applies the throttle
+     * only afterwards ({@see SpendSignedToken}), so that using the
      * token up does not depend on the request getting past a rate limit: a
      * victim's callback that is answered 429 would otherwise leave the token
      * good for its lifetime for whoever reads that URL. The work done before
