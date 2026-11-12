@@ -637,3 +637,18 @@ it('does not let a claims class set email_verified', function () {
     expect(fn () => TokenIssuer::fromConfig()->issue($this->user, 'panel-b', $this->state))
         ->toThrow(InvalidArgumentException::class, 'email_verified');
 });
+
+// -----------------------------------------------------------------------------
+// The environment claim is the issuer's alone (review D4)
+// -----------------------------------------------------------------------------
+
+it('reserves the environment claim even when the issuer sets no environment', function (?string $claimName) {
+    config(['martis.auth.sso.issuer.claims' => StIssuerClaims::class, 'martis.auth.sso.issuer.environment' => null]);
+    if ($claimName !== null) {
+        config(['martis.auth.sso.issuer.environment_claim' => $claimName]);
+    }
+    StIssuerClaims::$result = [$claimName ?? 'env' => 'production'];
+
+    expect(fn () => TokenIssuer::fromConfig()->issue($this->user, 'panel-b', $this->state))
+        ->toThrow(InvalidArgumentException::class, 'martis.auth.sso.issuer.claims');
+})->with(['the default name' => [null], 'a custom name' => ['deployment']]);
