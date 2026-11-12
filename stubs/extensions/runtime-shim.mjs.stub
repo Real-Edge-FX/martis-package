@@ -76,6 +76,11 @@ export const martisEventBus = R.martisEventBus
 
 // Components
 export const AuthFrame = R.AuthFrame
+// The challenge (captcha) wiring of the public auth forms (v2.21.0): the hook
+// holds the token and the reset, the component renders the `auth:challenge`
+// widget. Names added in v2.21.0: refresh this file (see the header) to import them.
+export const useAuthChallenge = R.useAuthChallenge
+export const AuthChallenge = R.AuthChallenge
 export const Sidebar = R.Sidebar
 export const Topbar = R.Topbar
 export const Footer = R.Footer
