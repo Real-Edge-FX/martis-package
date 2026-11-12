@@ -639,10 +639,25 @@ Each item accepts `label` (i18n key or literal), `icon` (**Phosphor icon name** 
 ```php
 'toast' => [
     'position' => env('MARTIS_TOAST_POSITION', 'bottom-right'),
+    'durations' => [
+        'success' => 5000,
+        'info' => 5000,
+        'warning' => 5000,
+        'error' => 5000,
+    ],
 ],
 ```
 
-Options: `'top-right'`, `'top-left'`, `'bottom-right'`, `'bottom-left'`, `'top-center'`, `'bottom-center'`.
+Options for `position`: `'top-right'`, `'top-left'`, `'bottom-right'`, `'bottom-left'`, `'top-center'`, `'bottom-center'`.
+
+`durations` (v2.21.0) is how long a toast stays, per severity, in milliseconds. `null` keeps the toast until the person closes it (every toast has a close button, reachable by keyboard). The defaults match the behaviour before v2.21.0. A toast with a safe link stays at least 10000 ms, unless its duration is `null`. A value that is neither `null` nor a positive integer of at most 2147483647 (the longest delay a browser timer holds; a longer one makes the toast vanish at once) throws an `InvalidArgumentException` naming the key, for example `martis.toast.durations.error`. A string of digits is accepted as that integer, which is what `env()` yields (`'error' => env('MARTIS_TOAST_ERROR_MS')` with `8000` in `.env`). A sticky severity (`null`) has no cap: a toast raised in a loop (a retry or a poll that fails every few seconds) stacks without bound until the person closes them, so keep `null` for severities that fire rarely.
+
+```php
+// Errors stay until closed, successes go after 3 seconds.
+'durations' => ['success' => 3000, 'error' => null],
+```
+
+A single call overrides the config: see `addToast` options in [Components](components.md).
 
 ## Index (Resource Listing)
 
@@ -849,7 +864,7 @@ To republish the stub manually (e.g. after package upgrade adds a new section): 
 
 ### Config keys that take a callable
 
-Five keys in `config/martis.php` take a callable instead of a value:
+Six keys in `config/martis.php` take a callable instead of a value:
 
 | Key | Called with | Returns |
 |---|---|---|
@@ -858,6 +873,7 @@ Five keys in `config/martis.php` take a callable instead of a value:
 | `profile.avatar.url_resolver` | `string $storedPath` | The avatar's public URL (`string`). |
 | `auth.sso.providers.{provider}.role_source_callable` | `string $externalId, string $accessToken` | The external role names (`array<int, string>`). See [SSO](sso.md#role_source--where-external-role-names-come-from). |
 | `auth.sso.providers.{provider}.role_callable` | `array $externalRoles, ?User $user, string $provider` | The local roles (`Collection`). See [SSO](sso.md#role_strategy--how-to-map-external-names-to-local-roles). |
+| `auth.sso.issuer.claims` | `Authenticatable $user, string $audience` | The claims to add to, or replace in, the signed SSO token (`array<string, mixed>`, v2.21.0). See [SSO](sso.md#18-signed-token-between-two-martis-apps-v2210). |
 
 `php artisan config:cache` writes the merged config with `var_export()`, so only strings, numbers, booleans and arrays survive it. Two forms of callable do, so use one of them:
 
@@ -1250,6 +1266,46 @@ Translations remain the recommended path for multi-locale apps. Use these env va
 ```
 
 Toggles the theme switcher and locale picker that float on the auth pages.
+
+## Password sign-in switch (v2.21.0)
+
+```php
+'auth' => [
+    'password_login' => [
+        'enabled'            => env('MARTIS_PASSWORD_LOGIN_ENABLED', true),
+        'break_glass_emails' => [], // env: MARTIS_PASSWORD_LOGIN_BREAK_GLASS_EMAILS (comma-separated)
+    ],
+],
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `auth.password_login.enabled` | `bool` | `true` | `false` turns email and password sign-in off for an SSO-only panel: `POST /login` and `POST /api/auth/login` answer 403 for every address before the controller reads a credential, the password reset flow is off with it, and the login page shows the SSO buttons only (`?password_login=1` still shows the form). An empty string (`MARTIS_PASSWORD_LOGIN_ENABLED=`) is "unset": on. Anything else that is not a boolean or a boolean string throws, naming the key, on a sign-in request or the login page (the provider boot stays up). Turning it off does not end existing sessions or remember-me cookies. |
+| `auth.password_login.break_glass_emails` | `array<string>` | `[]` | Addresses (trimmed, case-insensitive) that may still sign in with a password while it is off; the account is looked up by the trimmed, lower-cased address, so store it that way. A failed break-glass sign-in answers with the same 403 as any other address. Never published to the browser. A value that is not an array of strings throws, naming the key. |
+
+Magic-link sign-in, invitations and registration keep their own switches: an SSO-only panel turns them off. One warning a day (with a persistent cache store) is logged when password sign-in is off and no SSO provider is enabled and magic link is off. See [Authentication → Password sign-in switch](authentication.md#password-sign-in-switch-v2210).
+
+## Challenge (captcha) hook (v2.21.0)
+
+```php
+'auth' => [
+    'challenge' => [
+        'enabled'    => env('MARTIS_AUTH_CHALLENGE_ENABLED', false),
+        'verifier'   => env('MARTIS_AUTH_CHALLENGE_VERIFIER'),
+        'site_key'   => env('MARTIS_AUTH_CHALLENGE_SITE_KEY'),
+        'applies_to' => ['login', 'forgot', 'magic_link', 'register'],
+    ],
+],
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `auth.challenge.enabled` | `bool` | `false` | Turns the hook on. An empty string (`MARTIS_AUTH_CHALLENGE_ENABLED=`) is "unset": off. |
+| `auth.challenge.verifier` | `?class-string` | `null` | A class implementing `Martis\Contracts\ChallengeVerifier`, resolved from the container. Required while enabled; never published. |
+| `auth.challenge.site_key` | `?string` | `null` | Public key, published as `window.MartisConfig.auth.challenge.siteKey` for the `auth:challenge` component. |
+| `auth.challenge.applies_to` | `array<string>` | `['login', 'forgot', 'magic_link', 'register']` | Surfaces covered. Allowed: `login`, `forgot`, `reset`, `magic_link`, `register`, `invitation`. |
+
+A POST to a covered route without a token the verifier accepts answers 422 `errors.challenge_token`, before its controller (a flow that is switched off answers its own 404 or 503 and the verifier is not called); a verifier that throws refuses too (fail closed). An enabled hook with a missing, unknown or wrong-type `verifier`, or an unknown name in `applies_to`, throws naming the key. The `auth` entry the page publishes is an allow-list since v2.21.0. See [Authentication → Challenge (captcha) hook](authentication.md#challenge-captcha-hook-v2210), which has a complete Cloudflare Turnstile example, and [What reaches the browser](authentication.md#what-reaches-the-browser-v2210).
 
 ## Password reset
 
@@ -1695,6 +1751,16 @@ php artisan martis:list-env-vars --json      # JSON array
 | `MARTIS_SSO_AZURE_ENABLED` | `false` |
 | `MARTIS_SSO_AZURE_LOGOUT_URL` | `(no default)` |
 | `MARTIS_SSO_ENABLED` | `false` |
+| `MARTIS_SSO_ISSUER` | `(no default)` |
+| `MARTIS_SSO_ISSUER_AUDIENCE_PANEL_B_CALLBACK_URL` | `(no default)` |
+| `MARTIS_SSO_ISSUER_ENABLED` | `false` |
+| `MARTIS_SSO_ISSUER_ENVIRONMENT` | `(no default)` |
+| `MARTIS_SSO_ISSUER_PRIVATE_KEY` | `(no default)` |
+| `MARTIS_SSO_PANEL_A_AUDIENCE` | `(no default)` |
+| `MARTIS_SSO_PANEL_A_AUTHORIZE_URL` | `(no default)` |
+| `MARTIS_SSO_PANEL_A_ENABLED` | `false` |
+| `MARTIS_SSO_PANEL_A_ISSUER` | `(no default)` |
+| `MARTIS_SSO_PANEL_A_PUBLIC_KEYS` | `''` |
 | `MARTIS_STICKY_VIEWS_ENABLED` | `true` |
 | `MARTIS_STICKY_VIEWS_SCOPE` | `'session'` |
 | `MARTIS_STORAGE_DISK` | `'public'` |

@@ -130,9 +130,10 @@ it('martis:sso azure is idempotent — running twice does not duplicate the conf
     ])->expectsOutputToContain('already declared')
         ->assertSuccessful();
 
-    // Config should contain exactly one azure block.
+    // Config should contain exactly one azure block. The published file also
+    // shows a commented example under the same name, which is not a block.
     $config = (string) file_get_contents(config_path('martis.php'));
-    $occurrences = substr_count($config, "'azure' => [");
+    $occurrences = preg_match_all('/^[ \t]*\'azure\'[ \t]*=>[ \t]*\[/m', $config);
     expect($occurrences)->toBe(1);
 });
 

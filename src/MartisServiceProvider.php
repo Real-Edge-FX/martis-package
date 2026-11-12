@@ -24,6 +24,7 @@ use InvalidArgumentException;
 use Laravel\Mcp\Facades\Mcp;
 use Laravel\Mcp\Server\McpServiceProvider;
 use Martis\Actions\ActionEventRedactor;
+use Martis\Auth\AuthConfigurationException;
 use Martis\Auth\DefaultRegistersUsers;
 use Martis\Auth\DefaultResetsUserPasswords;
 use Martis\Auth\DefaultSendsEmailVerification;
@@ -34,6 +35,7 @@ use Martis\Auth\Listeners\RecordAuthorizationDenial;
 use Martis\Auth\Listeners\RecordImpersonation;
 use Martis\Auth\Listeners\RecordRoleChange;
 use Martis\Auth\Listeners\ResetTwoFactorPass;
+use Martis\Auth\PasswordLogin;
 use Martis\Authorization\PolicyResolver;
 use Martis\Authorization\RequestScopedAbilityCache;
 use Martis\Cache\MartisCache;
@@ -64,6 +66,7 @@ use Martis\Console\PublishAssetsCommand;
 use Martis\Console\ResourceMakeCommand;
 use Martis\Console\RolesScaffoldCommand;
 use Martis\Console\SearchIndexCommand;
+use Martis\Console\SsoKeysCommand;
 use Martis\Console\SsoMakeCommand;
 use Martis\Console\StubsCommand;
 use Martis\Console\ThemeDiffCommand;
@@ -88,10 +91,13 @@ use Martis\Http\Middleware\AuthorizePanelAccess;
 use Martis\Http\Middleware\AuthorizeTool;
 use Martis\Http\Middleware\EnforceImpersonationDuration;
 use Martis\Http\Middleware\EnforceSoftGate;
+use Martis\Http\Middleware\EnforceSsoSession;
 use Martis\Http\Middleware\EnsureEmailIsVerified;
 use Martis\Http\Middleware\EnsurePasswordIsChanged;
+use Martis\Http\Middleware\EnsurePasswordLoginAllowed;
 use Martis\Http\Middleware\EnsureTwoFactorChallenge;
 use Martis\Http\Middleware\MartisAuthenticate;
+use Martis\Http\Middleware\VerifyChallenge;
 use Martis\Http\RouteMiddleware;
 use Martis\Impersonation\Events\ImpersonationStarted;
 use Martis\Impersonation\Events\ImpersonationStopped;
@@ -265,6 +271,7 @@ class MartisServiceProvider extends ServiceProvider
 
         $this->registerBuiltInResources();
         $this->registerPasswordResetUrl();
+        PasswordLogin::warnWhenLockedOut();
         $this->registerEmailVerificationUrl();
         $this->registerInvitationAcceptUrl();
         $this->registerRateLimiters();
@@ -316,6 +323,7 @@ class MartisServiceProvider extends ServiceProvider
                 CacheEnableCommand::class,
                 ListOverridesCommand::class,
                 ListEnvVarsCommand::class,
+                SsoKeysCommand::class,
                 SsoMakeCommand::class,
                 RolesScaffoldCommand::class,
                 InvitationsScaffoldCommand::class,
@@ -586,6 +594,9 @@ class MartisServiceProvider extends ServiceProvider
         /** @var Router $router */
         $router = $this->app->make('router');
         $router->aliasMiddleware('martis.auth', MartisAuthenticate::class);
+        // Ends an SSO-opened session that is too old, revoked or no longer
+        // valid at the IdP (v2.21.0), right after `martis.auth`.
+        $router->aliasMiddleware('martis.sso.session', EnforceSsoSession::class);
         $router->aliasMiddleware('martis.2fa', EnsureTwoFactorChallenge::class);
         $router->aliasMiddleware('martis.locale', ApplyUserPreferencesLocale::class);
         $router->aliasMiddleware('martis.verified', EnsureEmailIsVerified::class);
@@ -600,6 +611,10 @@ class MartisServiceProvider extends ServiceProvider
         // The gate of a Tool's routes (`martis.tool:{uriKey}`), see
         // ToolRoutes::middleware().
         $router->aliasMiddleware('martis.tool', AuthorizeTool::class);
+        // The password sign-in switch and the challenge (captcha) hook of the
+        // public auth routes (v2.21.0), see routes/martis.php.
+        $router->aliasMiddleware('martis.password_login', EnsurePasswordLoginAllowed::class);
+        $router->aliasMiddleware('martis.challenge', VerifyChallenge::class);
         // The soft lock (`lockedFor()`, `requirePlan()`) on the routes that
         // serve an entity's data, see EnforceSoftGate.
         $router->aliasMiddleware('martis.gate', EnforceSoftGate::class);
@@ -710,7 +725,15 @@ class MartisServiceProvider extends ServiceProvider
      */
     protected function registerPasswordResetUrl(): void
     {
-        if (! (bool) config('martis.auth.passwordReset.enabled', false)) {
+        // An unusable `password_login.enabled` must not stop the boot (every
+        // artisan command, worker and request goes through it): the reset
+        // URL builder stays unset and the sign-in routes still throw, naming
+        // the key, when they are called.
+        try {
+            if (! PasswordLogin::passwordResetEnabled()) {
+                return;
+            }
+        } catch (AuthConfigurationException) {
             return;
         }
 

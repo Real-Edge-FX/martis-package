@@ -28,6 +28,7 @@ export type AuthCopyKey =
   | 'title'
   | 'subtitle'
   | 'subtitle_with_sso'
+  | 'subtitle_sso_only'
 
 type AuthCopyValue = string | Record<string, string> | null | undefined
 

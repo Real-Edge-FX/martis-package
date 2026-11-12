@@ -53,6 +53,12 @@ class RoleMapper
         static::$resolver = null;
     }
 
+    /** Whether a host closure registered through {@see resolveUsing()} replaces the strategies. */
+    public static function hasResolver(): bool
+    {
+        return static::$resolver !== null;
+    }
+
     /**
      * @param  array<int, string>  $externalRoles
      * @return Collection<int, mixed>

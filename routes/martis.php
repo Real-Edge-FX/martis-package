@@ -33,11 +33,14 @@ use Martis\Http\Controllers\ResourceController;
 use Martis\Http\Controllers\SearchController;
 use Martis\Http\Controllers\SlugController;
 use Martis\Http\Controllers\SsoController;
+use Martis\Http\Controllers\SsoIssuerController;
 use Martis\Http\Controllers\ToolFieldsController;
 use Martis\Http\Controllers\ToolsController;
 use Martis\Http\Controllers\TranslationsController;
 use Martis\Http\Controllers\TwoFactorController;
+use Martis\Http\Middleware\RememberIntendedUrl;
 use Martis\Http\RouteMiddleware;
+use Martis\Sso\SignedToken\IssuerSettings;
 
 // The middleware of every group below comes from RouteMiddleware, which
 // also gives a Tool's routes (Tool::loadRoutes()) the stack of the
@@ -48,10 +51,14 @@ Route::middleware(RouteMiddleware::base())
     ->group(function () {
         // Public routes — no authentication required
         Route::get('/login', [LoginController::class, 'showLoginForm'])->name('login');
+        // Order on the sign-in routes: the throttles, then the password
+        // sign-in switch (v2.21.0), then the challenge hook (v2.21.0).
         Route::post('/login', [LoginController::class, 'login'])
             ->middleware([
                 'throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1),
                 'throttle:martis-login',
+                'martis.password_login',
+                'martis.challenge:login',
             ])
             ->name('login.attempt');
         Route::post('/logout', [LoginController::class, 'logout'])->name('logout');
@@ -105,6 +112,23 @@ Route::middleware(RouteMiddleware::base())
                 ->name('sso.callback');
         }
 
+        // SSO issuer (v2.21.0): this panel signs its users in to another Martis
+        // panel with a short-lived signed token. Always registered; the
+        // controller answers 404 while `martis.auth.sso.issuer.enabled` is
+        // false, so the route inventory does not change with the config. The
+        // full protected stack, the same as the API's (an anonymous visitor
+        // goes through the login page, RememberIntendedUrl keeps this URL),
+        // and registered before the SPA catch-all.
+        Route::get('/sso/issue/{audience}', [SsoIssuerController::class, 'issue'])
+            ->where('audience', IssuerSettings::AUDIENCE_PATTERN)
+            ->middleware([
+                RememberIntendedUrl::class,
+                ...RouteMiddleware::authenticated(),
+                ...RouteMiddleware::verified(),
+                ...RouteMiddleware::throttle(),
+            ])
+            ->name('sso.issue');
+
         // Favicon — public, served from configured path, published assets,
         // or the package's own resources/ directory as final fallback (so
         // the default Martis favicon works out-of-the-box without any
@@ -141,6 +165,8 @@ Route::middleware(RouteMiddleware::base())
             ->middleware([
                 'throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1),
                 'throttle:martis-login',
+                'martis.password_login',
+                'martis.challenge:login',
             ])
             ->name('api.auth.login');
         Route::post('/api/auth/logout', [AuthController::class, 'logout'])->name('api.auth.logout');
@@ -151,13 +177,22 @@ Route::middleware(RouteMiddleware::base())
         // stays predictable across environments and config:cache
         // doesn't have to differ between dev/staging/prod).
         Route::post('/api/auth/register', [AuthController::class, 'register'])
-            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+            ->middleware([
+                'throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1),
+                'martis.challenge:register',
+            ])
             ->name('api.auth.register');
         Route::post('/api/auth/password/email', [AuthController::class, 'sendPasswordResetLink'])
-            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+            ->middleware([
+                'throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1),
+                'martis.challenge:forgot',
+            ])
             ->name('api.auth.password.email');
         Route::post('/api/auth/password/reset', [AuthController::class, 'resetPassword'])
-            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+            ->middleware([
+                'throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1),
+                'martis.challenge:reset',
+            ])
             ->name('api.auth.password.reset');
 
         // Invitation accept POST — public (token-authorized). Always
@@ -166,7 +201,10 @@ Route::middleware(RouteMiddleware::base())
         // `martis-invite` Gate — that Gate only guards the privileged
         // "issue an invitation" action, not accepting one.
         Route::post('/api/invitations/accept', [InvitationController::class, 'accept'])
-            ->middleware('throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1))
+            ->middleware([
+                'throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1),
+                'martis.challenge:invitation',
+            ])
             ->name('api.invitations.accept');
 
         // Magic-link (passwordless) sign-in. Routes are always
@@ -176,6 +214,7 @@ Route::middleware(RouteMiddleware::base())
             ->middleware([
                 'throttle:'.config('martis.throttle.login_attempts', 20).','.config('martis.throttle.login_minutes', 1),
                 'throttle:martis-login',
+                'martis.challenge:magic_link',
             ])
             ->name('api.auth.magic-link.request');
         // The emailed link opens the confirmation page and never signs in
@@ -204,7 +243,7 @@ Route::middleware(RouteMiddleware::base())
         // verified status if applied. The signed verify route uses
         // the framework's `signed` middleware for safety.
         Route::get('/email/verify', [EmailVerificationController::class, 'notice'])
-            ->middleware('martis.auth')
+            ->middleware(['martis.auth', 'martis.sso.session'])
             ->name('email.verify.notice');
         // Public route — the signed URL + `sha1(email)` hash in the
         // path are the proof of intent; requiring an active session
@@ -234,7 +273,7 @@ Route::middleware(RouteMiddleware::base())
         // 3/min is the conventional ceiling for password-reset and
         // verification re-send flows. v1.8.16+.
         Route::post('/api/auth/email/verification-notification', [EmailVerificationController::class, 'send'])
-            ->middleware(['martis.auth', 'throttle:3,1,'.RouteMiddleware::throttlePrefix('verification')])
+            ->middleware(['martis.auth', 'martis.sso.session', 'throttle:3,1,'.RouteMiddleware::throttlePrefix('verification')])
             ->name('api.auth.email.verification.send');
 
         // Translations — public, loaded before login

@@ -9,6 +9,7 @@ import { config } from '@/lib/config'
 import { useAuthCopy } from '@/lib/authCopy'
 import { AuthFrame } from '@/components/auth/AuthFrame'
 import { FieldError } from '@/components/auth/FieldError'
+import { AuthChallenge, useAuthChallenge } from '@/components/auth/AuthChallenge'
 import { PasswordFieldInput } from '@/components/fields/PasswordField'
 import { PasswordConfirmationFieldInput } from '@/components/fields/PasswordConfirmationField'
 import { confirmationField, policyPasswordField } from '@/lib/passwordPolicy'
@@ -42,6 +43,7 @@ export function RegisterPage() {
   const [passwordConfirmation, setPasswordConfirmation] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
+  const challenge = useAuthChallenge('register')
 
   // Reuse the same field stack as the Profile password section —
   // strength meter, live requirements checklist, match indicator. v1.8.2.
@@ -58,6 +60,7 @@ export function RegisterPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    if (challenge.misconfigured) return
     setErrors({})
     if (password !== passwordConfirmation) {
       setErrors({ password_confirmation: t('register_password_mismatch', { defaultValue: 'Passwords do not match.' }) })
@@ -70,6 +73,7 @@ export function RegisterPage() {
         email,
         password,
         password_confirmation: passwordConfirmation,
+        ...challenge.fields('register'),
       })
       // When the workspace requires email verification, the user is NOT
       // ready to sign in yet — sending them to /login with a "Please
@@ -91,6 +95,8 @@ export function RegisterPage() {
         navigate('/login', { replace: true })
       }
     } catch (err) {
+      // A challenge token is usable once: ask the widget for a new one.
+      challenge.reset()
       if (err instanceof ApiError) {
         if (err.status === 422 && err.errors) {
           setErrors(err.errorsByField())
@@ -212,6 +218,8 @@ export function RegisterPage() {
             announceError
           />
         </div>
+
+        <AuthChallenge challenge={challenge} error={errors.challenge_token} />
 
         <button
           type="submit"

@@ -816,6 +816,9 @@ html[data-theme="dark"]  .martis-brand-img--light { display: none !important; }
   font-size: 13px;
   margin: 0;
   line-height: 1.55;
+  /* Spread the text over its lines: without it a 400px card broke the
+     subtitle after the hyphen of "sign-in". */
+  text-wrap: balance;
 }
 .martis-auth-divider {
   display: flex;

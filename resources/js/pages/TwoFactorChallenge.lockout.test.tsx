@@ -83,3 +83,37 @@ describe('TwoFactorChallengePage: refusals', () => {
     expect(screen.queryByText('Invalid code. Please try again.')).toBeNull()
   })
 })
+
+describe('TwoFactorChallengePage: where a passed challenge goes', () => {
+  beforeEach(() => {
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { href: 'http://localhost/martis/2fa/challenge', pathname: '/martis/2fa/challenge', origin: 'http://localhost' },
+    })
+  })
+
+  it('opens the dashboard when the answer names no page', async () => {
+    post.mockResolvedValue({ message: 'Authenticated.' })
+    submitCode()
+
+    await waitFor(() => expect(window.location.href).toBe('/martis/'))
+  })
+
+  it('opens the page asked for before the sign-in (v2.21.0), a path under the base path', async () => {
+    post.mockResolvedValue({ message: 'Authenticated.', intended_url: '/martis/sso/issue/partner?state=abc' })
+    submitCode()
+
+    await waitFor(() => expect(window.location.href).toBe('/martis/sso/issue/partner?state=abc'))
+  })
+
+  it.each([
+    ['a foreign URL', 'https://evil.example/martis/x'],
+    ['a protocol-relative URL', '//evil.example/martis/x'],
+    ['a path outside the base path', '/other'],
+  ])('ignores %s and opens the dashboard', async (_label, intended) => {
+    post.mockResolvedValue({ message: 'Authenticated.', intended_url: intended })
+    submitCode()
+
+    await waitFor(() => expect(window.location.href).toBe('/martis/'))
+  })
+})

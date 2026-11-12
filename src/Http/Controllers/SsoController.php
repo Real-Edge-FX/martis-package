@@ -4,18 +4,29 @@ declare(strict_types=1);
 
 namespace Martis\Http\Controllers;
 
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Lang;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use InvalidArgumentException;
 use Martis\Auth\TwoFactorPass;
+use Martis\Events\SsoFailed;
+use Martis\Events\SsoLoggedIn;
 use Martis\Sso\IdentityResolver;
 use Martis\Sso\RoleMapper;
-use Martis\Sso\SsoAdoptionRefusedException;
+use Martis\Sso\SsoDenial;
+use Martis\Sso\SsoException;
 use Martis\Sso\SsoIdentity;
+use Martis\Sso\SsoLogRedactor;
 use Martis\Sso\SsoManager;
 use Martis\Sso\SsoSession;
+use Throwable;
 
 /**
  * SSO entry points — generic over every registered provider.
@@ -34,6 +45,29 @@ use Martis\Sso\SsoSession;
  *   6. AfterLogin hook fires (audit log, user-type rules, etc.).
  *   7. Auth::login() (remember-me only when the provider sets `remember`)
  *      + redirect to the configured target.
+ *
+ * Steps 2 to 4 run roles first, so a refused identity never reaches the
+ * database: when the role mapping does not need the user (the `column` and
+ * `config` strategies, no `resolveRolesUsing` closure) the roles are mapped
+ * before the user is resolved and a deny returns before IdentityResolver runs.
+ * When it does need the user (the `callable` strategy, or a custom roles
+ * closure), step 4 runs first inside a transaction on the user model's
+ * connection and a deny rolls it back. `provision_on_deny = true` restores the
+ * old order for apps that pre-provision rows on purpose: write, then deny.
+ * A `resolveUserUsing` closure that writes outside the user model's
+ * connection, and the model events a rolled-back row fired, are the app's to
+ * handle.
+ *
+ * The role sync and the post-login hooks run right after the user is
+ * resolved: inside the transaction when there is one, so a failure of either
+ * rolls the user row back too. On the pre-check order (no transaction) and with
+ * `provision_on_deny` the row the sign-in wrote stays, and nobody is signed in.
+ *
+ * Every refusal is one log line, one SsoFailed event and a redirect to the
+ * login page, including any Throwable the user step, the role sync or a hook
+ * throws (reason `unknown`, the message redacted, the generic text). An
+ * InvalidArgumentException of the user or role step is a configuration error
+ * and is thrown, not refused: it names the key.
  */
 class SsoController extends Controller
 {
@@ -45,6 +79,12 @@ class SsoController extends Controller
 
     public function redirect(Request $request, string $provider): RedirectResponse
     {
+        $this->requireCanonicalName($provider);
+
+        // The person is on their way to the provider: the marker an ended
+        // session left (SsoSession::markEnded) has done its job.
+        SsoSession::forgetEnded($request);
+
         $driver = $this->manager->driver($provider);
 
         if ($driver === null) {
@@ -58,6 +98,8 @@ class SsoController extends Controller
 
     public function callback(Request $request, string $provider): RedirectResponse
     {
+        $this->requireCanonicalName($provider);
+
         $driver = $this->manager->driver($provider);
 
         if ($driver === null) {
@@ -66,83 +108,40 @@ class SsoController extends Controller
                 ->withErrors(['sso' => __('martis::messages.sso_provider_disabled')]);
         }
 
+        // A configuration error is thrown before anything is read or written.
+        SsoSession::assertLimitsFitRemember($provider);
+
         try {
             $identity = $driver->resolveIdentity($request);
-        } catch (\Throwable $e) {
-            Log::channel(config('logging.default'))->warning('SSO callback failed', [
-                'provider' => $provider,
-                'error' => $e->getMessage(),
-            ]);
-
-            return redirect()
-                ->route('martis.login')
-                ->withErrors(['sso' => __('martis::messages.sso_callback_failed')]);
+        } catch (Throwable $e) {
+            return $this->refuse($request, $provider, $e);
         }
 
-        // Step 1: resolve user (find-or-create). Run BEFORE roles when
-        // `auto_create_user = true` so the role mapper has the user
-        // available for column lookups that depend on it.
+        // Steps 1 to 4: the user and the roles (deny before provisioning, see
+        // the class docblock for the three orders), the role sync and the
+        // post-login hooks.
         try {
-            $user = $this->identityResolver->resolve($identity, $provider);
-        } catch (SsoAdoptionRefusedException $e) {
-            Log::channel(config('logging.default'))->warning('SSO sign-in refused: unverified local account holds the address', [
-                'provider' => $provider,
-                'email' => $e->email,
-            ]);
-
-            return redirect()
-                ->route('martis.login')
-                ->withErrors(['sso' => __('martis::messages.sso_account_unverified')]);
+            $admission = $this->admit($identity, $provider);
+        } catch (InvalidArgumentException $e) {
+            // A configuration error: loud, naming the key, never a quiet refusal.
+            throw $e;
+        } catch (Throwable $e) {
+            // A refusal that is not an SsoException (a unique index, a failing
+            // hook): one log line, one SsoFailed, the generic text. Never a 500.
+            return $this->refuse($request, $provider, $e);
         }
 
-        if ($user === null) {
-            return redirect()
-                ->route('martis.login')
-                ->withErrors(['sso' => __('martis::messages.sso_user_not_provisioned')]);
-        }
+        if ($admission instanceof SsoDenial) {
+            if ($admission->response !== null) {
+                $this->recordFailure($request, $provider, $admission->reason, null, "SSO sign-in refused: {$admission->reason}; the no-role-match hook took over");
 
-        // Step 2: resolve roles from the external group list.
-        $roles = $this->roleMapper->map($identity->externalRoles, $user, $provider);
-
-        if ($roles->isEmpty()) {
-            $cfg = config("martis.auth.sso.providers.{$provider}", []);
-            $strategy = (string) ($cfg['on_no_role_match'] ?? 'deny');
-
-            // The custom no-role-match hook is consulted ONLY for the
-            // 'callable' strategy (see SsoManager::onNoRoleMatchUsing). Firing
-            // it unconditionally let a registered callback override an explicit
-            // 'deny', and a 'callable' strategy whose callback returned null
-            // fell through to the 'guest' path — logging the user in with no
-            // roles. Both are now closed.
-            if ($strategy === 'callable') {
-                $hookResult = $this->manager->fireNoRoleMatch($identity, $provider);
-                if ($hookResult instanceof RedirectResponse) {
-                    return $hookResult;
-                }
-
-                // No callback registered, or it returned null: deny. A
-                // 'callable' strategy must never silently log in role-less.
-                return redirect()
-                    ->route('martis.login')
-                    ->withErrors(['sso' => __('martis::messages.sso_no_role_match')]);
+                return $admission->response;
             }
 
-            if ($strategy === 'deny') {
-                return redirect()
-                    ->route('martis.login')
-                    ->withErrors(['sso' => __('martis::messages.sso_no_role_match')]);
-            }
-            // strategy === 'guest' falls through with empty role set —
-            // user is logged in without any local role.
+            return $this->refuse($request, $provider, null, $admission->reason, $admission->messageKey);
         }
 
-        // Step 3: sync roles via the configured adapter.
-        if ((bool) (config("martis.auth.sso.providers.{$provider}.sync_roles", true))) {
-            $this->manager->adapterFor($provider)->syncRoles($user, $roles);
-        }
-
-        // Step 4: post-login side effects.
-        $this->manager->fireAfterLogin($user, $identity, $provider);
+        [$user] = $admission;
 
         // Step 5: log the user in via the Martis-configured guard. The
         // remember-me cookie is the provider's opt-in (`remember`, default
@@ -162,11 +161,251 @@ class SsoController extends Controller
         // through the IdP's federated logout URL (AuthController::logout)
         // and the forced password change gate never holds the session. With
         // remember-me it survives a remember-me re-login (the cookie), and
-        // it is dropped on sign-out and on a non-SSO sign-in.
-        SsoSession::start($request, $user, $provider, is_string($guard) ? $guard : null, $remember);
+        // it is dropped on sign-out and on a non-SSO sign-in. The sign-in
+        // time and the IdP's external id go with it (v2.21.0), for the
+        // `martis.sso.session` middleware.
+        SsoSession::start($request, $user, $provider, is_string($guard) ? $guard : null, $remember, $identity->externalId);
+
+        SsoLoggedIn::dispatch($user, $identity, $provider);
 
         $redirectTo = (string) (config("martis.auth.sso.providers.{$provider}.redirect_to") ?? '/'.config('martis.path', 'martis'));
 
         return redirect()->intended($redirectTo);
+    }
+
+    /**
+     * The provider name of the URL must be its lower-case form, the one every
+     * config key is read under. The manager lowercases the name to find the
+     * driver, so a path in another letter case would resolve the driver and
+     * then read every setting of the sign-in (identity matching, role mapping,
+     * `max_session_minutes`, the federated logout) under a key that does not
+     * exist, and run it on the defaults. 404 before anything else happens.
+     */
+    private function requireCanonicalName(string $provider): void
+    {
+        if ($provider !== strtolower($provider)) {
+            abort(404);
+        }
+    }
+
+    /**
+     * Resolve the local user and the local roles of an identity, or say why
+     * the identity is refused. Three orders (see the class docblock):
+     * `provision_on_deny` writes first, a role mapping that needs no user runs
+     * before anything is written, and one that needs the user runs inside a
+     * transaction that a denial rolls back.
+     *
+     * @return SsoDenial|array{0: User, 1: Collection<int, Model>}
+     *
+     * @throws Throwable
+     */
+    private function admit(SsoIdentity $identity, string $provider): SsoDenial|array
+    {
+        $cfg = config("martis.auth.sso.providers.{$provider}", []);
+
+        if ((bool) ($cfg['provision_on_deny'] ?? false)) {
+            return $this->completed($this->provisionThenMap($identity, $provider), $identity, $provider);
+        }
+
+        if (! $this->mappingNeedsUser($provider)) {
+            $roles = $this->roleMapper->map($identity->externalRoles, null, $provider);
+
+            if ($roles->isEmpty()) {
+                $denial = $this->noRoleMatch($identity, $provider);
+                if ($denial !== null) {
+                    return $denial;
+                }
+            }
+
+            $user = $this->identityResolver->resolve($identity, $provider);
+
+            return $user === null
+                ? new SsoDenial(SsoException::REASON_NOT_PROVISIONED, 'martis::messages.sso_user_not_provisioned')
+                : $this->completed([$user, $roles], $identity, $provider);
+        }
+
+        $connection = $this->identityResolver->connection();
+        $level = $connection->transactionLevel();
+        $connection->beginTransaction();
+
+        try {
+            // The role sync and the hooks run inside the transaction too, so a
+            // failure of either takes the row the sign-in wrote back with it.
+            $result = $this->completed($this->provisionThenMap($identity, $provider), $identity, $provider);
+
+            if ($result instanceof SsoDenial) {
+                $connection->rollBack();
+            } else {
+                $connection->commit();
+            }
+        } catch (Throwable $e) {
+            if ($connection->transactionLevel() > $level) {
+                $connection->rollBack();
+            }
+
+            throw $e;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Steps 3 and 4 for an admitted identity: sync the roles through the
+     * configured adapter, then fire the post-login hooks. A denial passes
+     * through untouched.
+     *
+     * @param  SsoDenial|array{0: User, 1: Collection<int, Model>}  $admission
+     * @return SsoDenial|array{0: User, 1: Collection<int, Model>}
+     */
+    private function completed(SsoDenial|array $admission, SsoIdentity $identity, string $provider): SsoDenial|array
+    {
+        if ($admission instanceof SsoDenial) {
+            return $admission;
+        }
+
+        [$user, $roles] = $admission;
+
+        try {
+            if ((bool) (config("martis.auth.sso.providers.{$provider}.sync_roles", true))) {
+                $this->manager->adapterFor($provider)->syncRoles($user, $roles);
+            }
+
+            $this->manager->fireAfterLogin($user, $identity, $provider);
+        } catch (InvalidArgumentException $e) {
+            // Host code (a sync callback, a hook): whatever it throws is a
+            // refusal. The caller keeps an InvalidArgumentException loud as a
+            // configuration error, so this one is wrapped.
+            throw new SsoException('SSO post-login step failed: '.$e->getMessage(), SsoException::REASON_UNKNOWN, null, $e);
+        }
+
+        return $admission;
+    }
+
+    /**
+     * Write the user, then map the roles with it and decide.
+     *
+     * @return SsoDenial|array{0: User, 1: Collection<int, Model>}
+     */
+    private function provisionThenMap(SsoIdentity $identity, string $provider): SsoDenial|array
+    {
+        $user = $this->identityResolver->resolve($identity, $provider);
+
+        if ($user === null) {
+            return new SsoDenial(SsoException::REASON_NOT_PROVISIONED, 'martis::messages.sso_user_not_provisioned');
+        }
+
+        $roles = $this->roleMapper->map($identity->externalRoles, $user, $provider);
+
+        if ($roles->isEmpty()) {
+            $denial = $this->noRoleMatch($identity, $provider);
+            if ($denial !== null) {
+                return $denial;
+            }
+        }
+
+        return [$user, $roles];
+    }
+
+    /**
+     * Whether the role mapping reads the user: the `callable` strategy hands it
+     * to the host's callable, and a `resolveRolesUsing` closure may read it.
+     */
+    private function mappingNeedsUser(string $provider): bool
+    {
+        if (RoleMapper::hasResolver()) {
+            return true;
+        }
+
+        return (string) config("martis.auth.sso.providers.{$provider}.role_strategy", 'column') === 'callable';
+    }
+
+    /**
+     * What an empty role set means: null for `guest` (sign in without a role),
+     * else the denial. The custom no-role-match hook is consulted ONLY for the
+     * 'callable' strategy (see SsoManager::onNoRoleMatchUsing). Firing it
+     * unconditionally let a registered callback override an explicit 'deny',
+     * and a 'callable' strategy whose callback returned null fell through to
+     * the 'guest' path, logging the user in with no roles.
+     */
+    private function noRoleMatch(SsoIdentity $identity, string $provider): ?SsoDenial
+    {
+        $strategy = (string) config("martis.auth.sso.providers.{$provider}.on_no_role_match", 'deny');
+        $key = 'martis::messages.sso_no_role_match';
+
+        if ($strategy === 'guest') {
+            return null;
+        }
+
+        if ($strategy === 'deny') {
+            return new SsoDenial(SsoException::REASON_NO_ROLE_MATCH, $key);
+        }
+
+        if ($strategy !== 'callable') {
+            throw new InvalidArgumentException(
+                "Unsupported [martis.auth.sso.providers.{$provider}.on_no_role_match] value: expected 'deny', 'guest' or 'callable'.",
+            );
+        }
+
+        $hookResult = $this->manager->fireNoRoleMatch($identity, $provider);
+
+        // No callback registered, or it returned null: deny. A 'callable'
+        // strategy must never silently log in role-less.
+        return new SsoDenial(
+            SsoException::REASON_NO_ROLE_MATCH,
+            $key,
+            $hookResult instanceof RedirectResponse ? $hookResult : null,
+        );
+    }
+
+    /**
+     * Refuse the sign-in: log it, dispatch {@see SsoFailed} and send the person
+     * back to the login page. Every refusal of the callback goes through here,
+     * so each one carries a distinct `reason`: the exception's own for an
+     * {@see SsoException}, `unknown` for any other Throwable, or the one the
+     * caller names when there is no exception.
+     *
+     * The login page shows the exception's `messageKey` text when that key is
+     * translated, else the generic `sso_callback_failed` text. A plain
+     * Throwable never reaches the page with its message.
+     */
+    private function refuse(
+        Request $request,
+        string $provider,
+        ?Throwable $exception,
+        string $reason = SsoException::REASON_UNKNOWN,
+        ?string $messageKey = null,
+    ): RedirectResponse {
+        if ($exception instanceof SsoException) {
+            $reason = $exception->reason;
+            $messageKey = $exception->messageKey;
+        }
+
+        $this->recordFailure($request, $provider, $reason, $exception, $exception?->getMessage() ?? "SSO sign-in refused: {$reason}");
+
+        $key = $messageKey !== null && Lang::has($messageKey) ? $messageKey : 'martis::messages.sso_callback_failed';
+
+        return redirect()
+            ->route('martis.login')
+            ->withErrors(['sso' => __($key)]);
+    }
+
+    /**
+     * One warning log line and one {@see SsoFailed}. The message goes through
+     * {@see SsoLogRedactor}: HTTP client exceptions embed request URLs and
+     * response bodies that carry codes and tokens.
+     */
+    private function recordFailure(Request $request, string $provider, string $reason, ?Throwable $exception, string $message): void
+    {
+        $requestId = $request->headers->get('X-Request-Id');
+
+        Log::channel(config('logging.default'))->warning('SSO callback failed', [
+            'provider' => $provider,
+            'reason' => $reason,
+            'request_id' => is_string($requestId) && $requestId !== '' ? mb_substr($requestId, 0, 128) : (string) Str::uuid(),
+            'exception' => $exception !== null ? $exception::class : null,
+            'error' => SsoLogRedactor::redact($message),
+        ]);
+
+        SsoFailed::dispatch($provider, $reason, $exception);
     }
 }

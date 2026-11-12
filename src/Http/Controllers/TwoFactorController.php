@@ -7,6 +7,7 @@ use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Martis\Auth\IntendedUrl;
 use Martis\Auth\PasswordChangeRequirement;
 use Martis\Auth\RememberedTwoFactor;
 use Martis\Auth\TwoFactorChallengeLockout;
@@ -25,7 +26,7 @@ class TwoFactorController extends MartisController
      * @body-param string code required The 6-digit OTP or a recovery code.
      * @body-param bool use_recovery_code Whether to treat code as a recovery code.
      *
-     * @response 200 array{message: string, password_change_required?: bool}
+     * @response 200 array{message: string, password_change_required?: bool, intended_url?: string}
      * @response 403 array{message: string, two_factor_locked: true}
      * @response 422 array{message: string, errors: array<string, string[]>}
      * @response 429 array{message: string}
@@ -87,6 +88,13 @@ class TwoFactorController extends MartisController
         // A user the forced password change gate holds goes there next (v2.3.0).
         if (PasswordChangeRequirement::requiredFor($request, $user)) {
             $payload['password_change_required'] = true;
+        }
+
+        // The sign-in is complete when no other step holds the user: hand the
+        // SPA the page that was asked for (IntendedUrl keeps it otherwise).
+        $intended = IntendedUrl::pullWhenSignedIn($request, $user);
+        if ($intended !== null) {
+            $payload['intended_url'] = $intended;
         }
 
         return response()->json($payload);

@@ -8,6 +8,7 @@ use Illuminate\Contracts\Auth\Guard;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Http\Request;
 use Martis\Auth\GuardCatalog;
+use Martis\Sso\SsoSessionEnforcer;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -44,6 +45,18 @@ class MartisAuthenticate implements AuthenticatesRequests
         }
 
         if ($request->expectsJson()) {
+            // A page fires several API requests at once and only the first
+            // meets an SSO session that is too old: the rest of that browser
+            // are answered with the same way back (v2.21.0), for a minute.
+            $reauth = app(SsoSessionEnforcer::class)->pendingReauthUrl($request);
+
+            if ($reauth !== null) {
+                return response()->json([
+                    'message' => __('martis::messages.sso_session_ended'),
+                    'sso_reauth_url' => $reauth,
+                ], Response::HTTP_UNAUTHORIZED);
+            }
+
             throw new AuthenticationException('Unauthenticated.');
         }
 

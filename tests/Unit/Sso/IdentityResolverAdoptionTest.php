@@ -6,6 +6,7 @@ use Illuminate\Foundation\Auth\User;
 use Illuminate\Support\Facades\Schema;
 use Martis\Sso\IdentityResolver;
 use Martis\Sso\SsoAdoptionRefusedException;
+use Martis\Sso\SsoException;
 use Martis\Sso\SsoIdentity;
 use Martis\Tests\TestCase;
 
@@ -130,8 +131,9 @@ it('refuses to create beside an unlinked row holding the address (external_id, a
     config()->set('martis.auth.sso.providers.azure.identity_external_id_column', 'azure_external_id');
     adoptionUser('victim@corp.example', verified: false);
 
+    // The row is unverified, but that is not why: the strategy never links by address.
     expect(fn () => (new IdentityResolver)->resolve(adoptionIdentity('victim@corp.example'), 'azure'))
-        ->toThrow(SsoAdoptionRefusedException::class);
+        ->toThrow(SsoException::class, 'link_by_email');
     expect(IdentityAdoptionUser::query()->count())->toBe(1);
 });
 

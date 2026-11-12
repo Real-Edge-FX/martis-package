@@ -126,6 +126,12 @@ return [
     'invitation_accept_invalid_title' => 'Invitation link invalid',
     'invitation_accept_invalid_message' => 'This invitation link is invalid or has expired.',
 
+    // Password sign-in switch and challenge hook (v2.21.0)
+    'login_sub_sso_only' => 'Welcome back. Continue with your organisation sign-in.',
+    'password_login_disabled' => 'Password sign-in is turned off on this workspace. Use your organisation sign-in.',
+    'challenge_failed' => 'The security check failed. Please try again.',
+    'challenge_not_configured' => 'The security check is turned on for this form, but no auth:challenge component is registered. Contact your administrator.',
+
     // Theme labels (used by AuthControls tooltip)
     'theme_dark' => 'Dark',
     'theme_light' => 'Light',

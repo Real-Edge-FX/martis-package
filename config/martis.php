@@ -963,6 +963,13 @@ return [
         | Use `php artisan martis:sso azure` to scaffold a provider
         | block, or hand-craft any combination here. See `docs/sso.md`
         | for the full reference and the four canonical recipes.
+        |
+        | Two Martis panels can sign each other's users in with a built-in
+        | signed token (v2.21.0, no OAuth server, no new store): the panel
+        | whose users sign in configures `issuer` below, the other one a
+        | provider block with `driver => 'signed-token'`. Generate the key
+        | pair with `php artisan martis:sso:keys`. See "Signed token between
+        | two Martis apps" in `docs/sso.md`.
         */
         'sso' => [
             'enabled' => env('MARTIS_SSO_ENABLED', false),
@@ -996,6 +1003,12 @@ return [
                 //     'role_strategy' => 'column',
                 //     'role_column' => 'azure_group_name',
                 //
+                //     // `window.MartisConfig.auth` (the public login page) carries only
+                //     // `enabled`, `label` and `icon` of an enabled provider (v2.21.0).
+                //     // List here any other key of this block a custom login component
+                //     // needs in the browser; nothing else of the block is sent.
+                //     // 'public' => ['tenant_label'],
+                //
                 //     'auto_create_user' => true,
                 //     // 'email' adopts the local row holding the IdP's address only
                 //     // when its email is verified (email_verified_at set) or
@@ -1003,12 +1016,39 @@ return [
                 //     // unverified row with registration open refuses the sign-in.
                 //     // 'external_id' matches an id the IdP issued and is unaffected.
                 //     'identity_match_attribute' => 'email',
+                //
+                //     // Only with 'external_id' (v2.21.0). The column that stores the
+                //     // id the IdP issued; a user the sign-in creates gets it written,
+                //     // and a sign-in with an empty id is refused. Default
+                //     // '{provider}_external_id' (azure_external_id).
+                //     'identity_external_id_column' => 'azure_object_id',
+                //
+                //     // Only with 'external_id' (v2.21.0). false (default): a local row
+                //     // that holds the IdP's address but not its id refuses the sign-in.
+                //     // true: that row is linked when its email passes the adoption rule
+                //     // above and its id column is empty (the id is written); a different
+                //     // id already stored there refuses the sign-in and is never overwritten.
+                //     'link_by_email' => false,
+                //
+                //     // 'name', 'email' and (v2.21.0) 'external_id': fill the id column
+                //     // when it is empty, on either strategy; a different non-empty value
+                //     // refuses the sign-in.
                 //     'sync_user_attributes' => ['name', 'email'],
                 //
                 //     'sync_roles' => true,
                 //     'permission_adapter' => 'auto',
                 //
                 //     'on_no_role_match' => 'deny',
+                //
+                //     // A refused identity (no role matches and on_no_role_match is
+                //     // 'deny' or 'callable') is refused BEFORE its local user is written
+                //     // (v2.21.0): no row is created and an existing row's name and email
+                //     // are not rewritten. When the role mapping needs the user (strategy
+                //     // 'callable' or a MartisSso::resolveRolesUsing closure) the user is
+                //     // written inside a transaction that the refusal rolls back.
+                //     // true restores the old order (write, then refuse) for apps that
+                //     // pre-provision rows on purpose.
+                //     'provision_on_deny' => false,
                 //     'redirect_to' => null,
                 //
                 //     // Remember-me after an SSO sign-in (v2.4.0). Off by default:
@@ -1016,8 +1056,35 @@ return [
                 //     // round-trip decides after it, so revoking access at the IdP
                 //     // ends the panel access. On, the remember cookie signs the
                 //     // user back in for `auth.guards.{guard}.remember` minutes
-                //     // (576000 by default) whatever the IdP says meanwhile.
+                //     // (576000 by default) whatever the IdP says meanwhile, and only
+                //     // MartisSso::revokeFor() ends it. It cannot be set together with
+                //     // `max_session_minutes` or `revalidate_every_minutes` (v2.21.0):
+                //     // a remembered re-login is recognised as an SSO one only through
+                //     // a cookie and a cache entry, so the limits could not be enforced.
                 //     'remember' => false,
+                //
+                //     // Absolute age of an SSO-opened session (v2.21.0), in whole
+                //     // minutes. null (the default) is off. A session this provider
+                //     // opened that is that old, counted from the SSO sign-in (not
+                //     // with 'remember' => true, which it excludes),
+                //     // is ended on its next request: a JSON request answers 401 with
+                //     // `sso_reauth_url` and the SPA goes through the provider again,
+                //     // any other request is redirected to /{martis}/sso/{name}/redirect.
+                //     // A session opened before v2.21.0 has no sign-in time and counts
+                //     // as expired. Password, magic-link and invitation sessions are
+                //     // never touched.
+                //     'max_session_minutes' => env('MARTIS_SSO_AZURE_MAX_SESSION_MINUTES'),
+                //
+                //     // Ask the provider whether the person is still allowed in
+                //     // (v2.21.0), at most once per this many minutes per session.
+                //     // null (the default) is off. Needs a provider class that
+                //     // implements Martis\Sso\Contracts\RevalidatesSessions (set on one
+                //     // that does not, it throws). stillValid() false ends the session
+                //     // as above. A throwable is reported and the session is kept; it is
+                //     // asked again no sooner than a minute later, so an IdP outage never
+                //     // signs everybody out (max_session_minutes is the hard bound). Give
+                //     // stillValid() a short HTTP timeout: it runs inside a request.
+                //     'revalidate_every_minutes' => env('MARTIS_SSO_AZURE_REVALIDATE_EVERY_MINUTES'),
                 //
                 //     // Federated logout (v1.8.8). Optional. When set,
                 //     // POST /api/auth/logout redirects through the IdP's
@@ -1028,6 +1095,15 @@ return [
                 //     //
                 //     // Microsoft Azure example:
                 //     //   logout_url => 'https://login.microsoftonline.com/{tenant}/oauth2/v2.0/logout?post_logout_redirect_uri={post_logout_redirect_uri}'
+                //     //
+                //     // Or (v2.21.0) the name of an invokable class, for an IdP whose
+                //     // logout URL needs more than a placeholder (an id_token_hint, a
+                //     // signed request):
+                //     //   __invoke(Request $request, ?Authenticatable $user, string $postLogoutRedirectUri): ?string
+                //     // It runs before the local logout, gets the login page URL as it
+                //     // is (encode it where your URL needs that) and answers the URL, or
+                //     // null for a local logout only. A class that is not invokable throws;
+                //     // one whose __invoke throws is reported and the logout stays local.
                 //     //
                 //     // Leave null (the default) to use Martis's own
                 //     // local-only logout (clears the cookie, redirects
@@ -1048,7 +1124,149 @@ return [
                 //     // and returns a Collection of role models. Same forms.
                 //     // 'role_callable' => App\Martis\SsoRoleMapper::class,
                 // ],
+
+                // Sign in through another Martis panel (v2.21.0). Any name works;
+                // `driver => 'signed-token'` selects the built-in provider. Scaffold
+                // it with `php artisan martis:sso panel-a --driver=signed-token`.
+                // Needs ext-sodium. The token is a PASETO v4.public signed by the
+                // other panel's `issuer` block (below); only its PUBLIC key goes here.
+                // 'panel_a' => [
+                //     'enabled' => env('MARTIS_SSO_PANEL_A_ENABLED', false),
+                //     'driver' => 'signed-token',
+                //     'label' => 'Continue with Panel A',
+                //     'icon' => 'lock-key',
+                //
+                //     // The issuing panel's /{martis}/sso/issue/{audience} URL.
+                //     'authorize_url' => env('MARTIS_SSO_PANEL_A_AUTHORIZE_URL'),
+                //
+                //     // Base64 Ed25519 public keys. Every one is accepted, so a key
+                //     // can be rotated without a gap (add the new, remove the old).
+                //     'public_keys' => array_values(array_filter(array_map('trim', explode(',', (string) env('MARTIS_SSO_PANEL_A_PUBLIC_KEYS', ''))))),
+                //
+                //     // What the token must say: `iss` is the issuing panel's
+                //     // `issuer`, `aud` the audience name it knows this panel by.
+                //     'issuer' => env('MARTIS_SSO_PANEL_A_ISSUER'),
+                //     'audience' => env('MARTIS_SSO_PANEL_A_AUDIENCE'),
+                //
+                //     'max_age_seconds' => 60,      // refuse a token issued longer ago
+                //     'clock_skew_seconds' => 30,   // tolerated clock difference
+                //     'role_claim' => 'roles',      // claim holding the role names
+                //
+                //     // Second lock (optional): accept only tokens whose claim equals
+                //     // this value, so a staging token never signs in to production.
+                //     // 'environment' => 'production',
+                //     // 'environment_claim' => 'env',
+                //
+                //     // The user id at the issuer is the stable identity: match by it.
+                //     'identity_match_attribute' => 'external_id',
+                //     'role_strategy' => 'column',
+                //     'role_column' => 'panel_a_group_name',
+                //     'auto_create_user' => true,
+                //     'sync_user_attributes' => ['name', 'email'],
+                //     'sync_roles' => true,
+                //     'permission_adapter' => 'auto',
+                //     'on_no_role_match' => 'deny',
+                //     'redirect_to' => null,
+                //     'remember' => false,
+                // ],
             ],
+
+            /*
+            |------------------------------------------------------------------
+            | SSO issuer (v2.21.0)
+            |------------------------------------------------------------------
+            |
+            | Lets the users of THIS panel sign in to another Martis panel. The
+            | other panel redirects the browser to
+            | `GET /{martis.path}/sso/issue/{audience}?state=...`; a signed-in
+            | user (2FA passed, `viewMartis` allowed) is sent back to the
+            | audience's `callback_url` with a signed token (PASETO v4.public,
+            | Ed25519) and the `state`. Off by default: the route answers 404.
+            |
+            |   enabled      Master switch of the issuing side.
+            |   issuer       This panel's name in the `iss` claim. The other
+            |                panel's provider block must have the same `issuer`.
+            |   private_key  Base64 Ed25519 secret key (64 bytes). Generate the
+            |                pair with `php artisan martis:sso:keys`, keep this half
+            |                in the environment only: no command writes it to a file.
+            |   ttl_seconds  How long a token lives (1 to 600, default 60). It
+            |                is also valid once only, on the other side.
+            |   environment  Optional. Put in the token (claim `environment_claim`,
+            |                default `env`) so a verifier locked to production
+            |                refuses a token from staging.
+            |   claims       Optional invokable class (or [Class::class, 'method'])
+            |                `(Authenticatable $user, string $audience): array`
+            |                that adds or replaces `email`, `name` and the roles
+            |                (claim `role_claim`, default `roles`). The claims that
+            |                bind the token (iss, aud, sub, iat, exp, jti, state), the
+            |                `email_verified` it states and the environment claim
+            |                cannot be set. Default roles: the user's Spatie role
+            |                names, else none.
+            |   audiences    `'<audience>' => ['callback_url' => 'https://...']`.
+            |                An audience name is the value of the other panel's
+            |                provider `audience`. The token is sent ONLY to that
+            |                callback URL (https, or http on localhost, *.localhost,
+            |                *.test, 127.0.0.1 and [::1]), never to a URL of the
+            |                request. Optional
+            |                `'ability' => 'sign-in-to-b'`: only users for whom
+            |                `Gate::forUser($user)->allows($ability)` is true get a
+            |                token for that audience (403 otherwise); a Spatie
+            |                permission name works. Unset: any panel user.
+            |
+            | The token is in the query string of the callback URL: keep query
+            | strings of that path out of access logs. See docs/sso.md.
+            */
+            'issuer' => [
+                'enabled' => env('MARTIS_SSO_ISSUER_ENABLED', false),
+                'issuer' => env('MARTIS_SSO_ISSUER'),
+                'private_key' => env('MARTIS_SSO_ISSUER_PRIVATE_KEY'),
+                'ttl_seconds' => 60,
+                'environment' => env('MARTIS_SSO_ISSUER_ENVIRONMENT'),
+                'claims' => null,
+                'audiences' => [
+                    // 'panel-b' => ['callback_url' => env('MARTIS_SSO_ISSUER_AUDIENCE_PANEL_B_CALLBACK_URL')],
+                ],
+            ],
+        ],
+
+        // Email and password sign-in (v2.21.0). Off, POST /login and
+        // POST /api/auth/login refuse every address with a 403 before their
+        // controller reads a credential, and the password reset flow
+        // (`passwordReset` below) is off with it. For a panel whose people
+        // sign in through SSO only. Magic-link sign-in, invitations and
+        // registration keep their own switches: an SSO-only panel turns them
+        // off. The login page then shows the SSO buttons only; it still shows
+        // the form on `?password_login=1` (the server decides who may use it).
+        'password_login' => [
+            'enabled' => env('MARTIS_PASSWORD_LOGIN_ENABLED', true),
+            // Addresses (case-insensitive, trimmed) that may still sign in
+            // with a password while it is off: the way back in when the IdP
+            // is down. Comma-separated in the env var. Keep it short.
+            'break_glass_emails' => array_values(array_filter(array_map(
+                'trim',
+                explode(',', (string) env('MARTIS_PASSWORD_LOGIN_BREAK_GLASS_EMAILS', ''))
+            ))),
+        ],
+
+        // Challenge (captcha) hook of the public forms (v2.21.0). Martis
+        // ships no captcha vendor: `verifier` names a class implementing
+        // Martis\Contracts\ChallengeVerifier, resolved from the container,
+        // and the `auth:challenge` component of the extension registry draws
+        // the widget (docs/authentication.md has a Cloudflare Turnstile
+        // example). While `enabled`, a POST to a listed surface without a
+        // token the verifier accepts answers 422 `errors.challenge_token`,
+        // before its controller runs. Fail closed: a verifier that returns
+        // false or throws refuses, an outage of the vendor included.
+        //   applies_to — surfaces covered: login, forgot, reset, magic_link,
+        //                register, invitation.
+        //   site_key   — public key sent to the component (never `verifier`).
+        // A missing, non-existent or wrong-type `verifier` while enabled, or
+        // an unknown name in `applies_to`, throws naming the key.
+        'challenge' => [
+            'enabled' => env('MARTIS_AUTH_CHALLENGE_ENABLED', false),
+            'verifier' => env('MARTIS_AUTH_CHALLENGE_VERIFIER'),
+            'site_key' => env('MARTIS_AUTH_CHALLENGE_SITE_KEY'),
+            'applies_to' => ['login', 'forgot', 'magic_link', 'register'],
         ],
 
         'passwordReset' => [
@@ -1195,6 +1413,8 @@ return [
                 'title' => env('MARTIS_AUTH_LOGIN_TITLE'),
                 'subtitle' => env('MARTIS_AUTH_LOGIN_SUBTITLE'),
                 'subtitle_with_sso' => env('MARTIS_AUTH_LOGIN_SUBTITLE_SSO'),
+                // Shown when password sign-in is off (v2.21.0).
+                'subtitle_sso_only' => env('MARTIS_AUTH_LOGIN_SUBTITLE_SSO_ONLY'),
             ],
             'register' => [
                 'title' => env('MARTIS_AUTH_REGISTER_TITLE'),
@@ -1308,9 +1528,21 @@ return [
     | Configure the position of toast notifications.
     | Options: 'top-right', 'top-left', 'bottom-right', 'bottom-left',
     |          'top-center', 'bottom-center'
+    |
+    | `durations` is how long a toast stays, per severity, in milliseconds.
+    | `null` keeps the toast until the person closes it. A toast with a link
+    | stays at least 10000 ms unless it is sticky. Anything other than null or
+    | a positive integer throws. A single call can override it with
+    | `addToast(type, message, { life })`.
     */
     'toast' => [
         'position' => env('MARTIS_TOAST_POSITION', 'bottom-right'),
+        'durations' => [
+            'success' => 5000,
+            'info' => 5000,
+            'warning' => 5000,
+            'error' => 5000,
+        ],
     ],
 
     /*

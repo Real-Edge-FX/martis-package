@@ -143,7 +143,7 @@
             search: {!! json_encode(config('martis.search', ['enabled' => true])) !!},
             dashboard: {!! json_encode(config('martis.dashboard', ['showGreeting' => true, 'showWelcome' => true, 'showWelcomeCard' => true, 'showMetrics' => true, 'showResourceCards' => true])) !!},
             welcome: {!! json_encode(config('martis.welcome', ['heading' => null, 'description' => null])) !!},
-            toast: {!! json_encode(config('martis.toast', ['position' => 'bottom-right'])) !!},
+            toast: {!! json_encode(\Martis\Support\ToastDurations::config(config('martis.toast'))) !!},
             footer: {!! json_encode(config('martis.footer', ['enabled' => true, 'text' => null])) !!},
             drawer: {!! json_encode([
                 'width' => config('martis.drawer.width', '560px'),
@@ -196,56 +196,13 @@
                     'scroll' => false,
                 ],
             ])) !!},
-            auth: {!! json_encode(array_merge(
-                config('martis.auth', [
-                    'sso' => ['enabled' => false, 'url' => null],
-                    'google' => ['enabled' => false, 'url' => null],
-                    'passwordReset' => ['enabled' => false, 'url' => null],
-                    'registration' => ['enabled' => false, 'url' => null],
-                    'controls' => ['theme' => true, 'locale' => true],
-                ]),
-                [
-                    'magicLink' => [
-                        'enabled' => (bool) config('martis.auth.magic_link.enabled', false),
-                        'ttlMinutes' => (int) config('martis.auth.magic_link.ttl_minutes', 15),
-                    ],
-                    // v1.8.16 — surfaced so the SPA can switch the
-                    // post-register toast from "Sign in" to "Check your
-                    // inbox" and the verify notice page can render a
-                    // generic "Check the inbox you registered with"
-                    // message when no session is active.
-                    'emailVerification' => [
-                        'enabled' => (bool) config('martis.auth.email_verification.enabled', false),
-                    ],
-                    // v2.3.0: the app's password policy
-                    // (Password::defaults(), Martis\Auth\PasswordPolicy), which
-                    // the SPA's password checklist draws; null when the app's
-                    // default is a rule the SPA cannot read.
-                    'passwordRequirements' => \Martis\Auth\PasswordPolicy::requirements(),
-                    // v2.3.0: the forced password change gate, where the
-                    // SPA sends a held user (the Martis page by default).
-                    'passwordChange' => [
-                        'enabled' => \Martis\Auth\PasswordChangeRequirement::enabled(),
-                        'url' => \Martis\Auth\PasswordChangeRequirement::pageUrl(),
-                    ],
-                ],
-                [
-                    // v1.8.5 — `auth.copy.*` accepts strings OR
-                    // `array<locale, string>` per entry. The blade
-                    // exposes the entries verbatim; the React helper
-                    // `useAuthCopy()` resolves the active locale at
-                    // render time (i18n.language) so the copy
-                    // re-renders when the user flips the language
-                    // picker, without a server round-trip.
-                    'copy' => config('martis.auth.copy', [
-                        'login' => ['title' => null, 'subtitle' => null, 'subtitle_with_sso' => null],
-                        'register' => ['title' => null, 'subtitle' => null],
-                        'forgot_password' => ['title' => null, 'subtitle' => null],
-                        'reset_password' => ['title' => null, 'subtitle' => null],
-                        'invitation_accept' => ['title' => null, 'subtitle' => null],
-                    ]),
-                ]
-            )) !!},
+            // An allow-list, never `config('martis.auth')` itself: this page is
+            // public (v2.21.0). See Martis\Auth\PublishedAuthConfig.
+            auth: {!! json_encode(\Martis\Auth\PublishedAuthConfig::toArray()) !!},
+            {{-- v2.21.0: the flashed `sso` refusal of the request, once, and nothing
+                 else of the error bag (Martis\Auth\PublishedFlash). Hex flags
+                 keep a text holding "</script>" inside the string. --}}
+            flash: {!! json_encode(\Martis\Auth\PublishedFlash::toArray(), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) !!},
             profile: {!! json_encode([
                 'enabled' => (bool) config('martis.profile.enabled', true),
                 'sections' => array_values(array_intersect(

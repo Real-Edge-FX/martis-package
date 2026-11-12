@@ -10,6 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Martis\Auth\IntendedUrl;
 use Martis\Auth\PasswordChanger;
 use Martis\Auth\PasswordChangeRequirement;
 use Martis\Auth\PasswordPolicy;
@@ -40,7 +41,7 @@ class PasswordChangeController extends MartisController
      * @body-param string password required The new password, validated with the app's Password::defaults(); it must differ from the current one.
      * @body-param string password_confirmation required
      *
-     * @response array{message: string}
+     * @response array{message: string, intended_url?: string}
      */
     public function update(Request $request, PasswordChanger $changer): JsonResponse
     {
@@ -61,7 +62,16 @@ class PasswordChangeController extends MartisController
 
         $changer->change($user, (string) $request->input('password'), forced: true);
 
-        return response()->json(['message' => __('martis::auth.password_change_done')]);
+        $payload = ['message' => __('martis::auth.password_change_done')];
+
+        // The last step before the panel: hand the SPA the page that was
+        // asked for before the sign-in (IntendedUrl), if any is left.
+        $intended = IntendedUrl::pullWhenSignedIn($request, $user);
+        if ($intended !== null) {
+            $payload['intended_url'] = $intended;
+        }
+
+        return response()->json($payload);
     }
 
     private function panelUser(): ?Authenticatable

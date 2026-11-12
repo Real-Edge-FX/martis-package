@@ -60,6 +60,8 @@ export interface MartisDashboardConfig {
 }
 
 export interface MartisToastConfig {
+  /** Lifetime per severity in milliseconds; `null` = stays until closed. */
+  durations?: Partial<Record<"success" | "info" | "warning" | "error", number | null>>
   position?: "top-right" | "top-left" | "bottom-right" | "bottom-left" | "top-center" | "bottom-center"
 }
 
@@ -313,12 +315,15 @@ export interface MartisAuthControlsConfig {
  *  button per enabled provider; the URL points at
  *  `/{martis-path}/sso/{provider-name}/redirect`. */
 export interface MartisSsoProviderConfig {
-  /** Master switch for this provider. */
+  /** Always `true`: only an enabled provider is published (v2.21.0). */
   enabled?: boolean
   /** Human-readable button label. */
   label?: string | null
   /** Phosphor icon name. */
   icon?: string | null
+  /** The other keys the provider block lists in its `public` array, for a
+   *  custom login component (v2.21.0). Nothing else of the block is sent. */
+  [publicKey: string]: unknown
 }
 
 export interface MartisSsoConfig {
@@ -344,6 +349,8 @@ export interface MartisAuthCopyConfig {
     subtitle?: MartisAuthCopyEntry
     /** Used instead of `subtitle` when SSO is enabled. */
     subtitle_with_sso?: MartisAuthCopyEntry
+    /** Used instead of `subtitle` when password sign-in is off (v2.21.0). */
+    subtitle_sso_only?: MartisAuthCopyEntry
   }
   register?: {
     title?: MartisAuthCopyEntry
@@ -380,6 +387,19 @@ export interface PasswordRequirements {
   noCommon?: boolean
 }
 
+/** The challenge (captcha) hook of the public forms (v2.21.0): which
+ *  surfaces carry the `auth:challenge` component, and the public key it
+ *  gets. The server-side verifier is never published. */
+export interface MartisAuthChallengeConfig {
+  enabled?: boolean
+  siteKey?: string | null
+  /** `login`, `forgot`, `reset`, `magic_link`, `register`, `invitation`. */
+  appliesTo?: string[]
+}
+
+/** The whole of `window.MartisConfig.auth`: an allow-list built by
+ *  `Martis\Auth\PublishedAuthConfig`, so a key the SPA does not read is not
+ *  here (v2.21.0). */
 export interface MartisAuthConfig {
   /** SSO subsystem. Replaces the legacy `sso` / `google` flat blocks. */
   sso?: MartisSsoConfig
@@ -395,6 +415,14 @@ export interface MartisAuthConfig {
   copy?: MartisAuthCopyConfig
   /** Magic-link (passwordless) sign-in. v1.8.8. */
   magicLink?: MartisMagicLinkConfig
+  /** Email and password sign-in. Off, the login page shows the SSO buttons
+   *  only, unless the URL carries `?password_login=1` (the server decides
+   *  who may then sign in). v2.21.0. */
+  passwordLogin?: {
+    enabled?: boolean
+  }
+  /** The challenge (captcha) hook of the public forms. v2.21.0. */
+  challenge?: MartisAuthChallengeConfig
   /** Email-verification subsystem state. The SPA branches on this for
    *  the post-register UX (toast copy + redirect) and for the verify
    *  notice page when no session is active. v1.8.16. */
@@ -415,8 +443,6 @@ export interface MartisAuthConfig {
 export interface MartisMagicLinkConfig {
   /** When true the Login page shows the "Email me a sign-in link" button. */
   enabled?: boolean
-  /** Minutes the emailed token stays valid; surfaced to the UI for copy. */
-  ttlMinutes?: number
 }
 
 export interface MartisConfigShape {
@@ -490,6 +516,12 @@ export interface MartisConfigShape {
    */
   locales?: MartisLocalesConfig
   auth?: MartisAuthConfig
+  /**
+   * The one message the server flashed for the page it renders, published by
+   * `Martis\Auth\PublishedFlash` (v2.21.0). `sso` is the text of a refused SSO
+   * sign-in; the login page shows it as an error toast and clears it.
+   */
+  flash?: { sso?: string | null }
   stickyViews?: MartisStickyViewsConfig
   notifications?: MartisNotificationsConfig
   impersonation?: MartisImpersonationConfig

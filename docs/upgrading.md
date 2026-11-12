@@ -4,6 +4,30 @@
 
 The sections below list the breaking changes of each major version and what to change in an app.
 
+## Upgrading to v2.21.0 from v2.20.x
+
+v2.21.0 is about sign-in: SSO-only panels, a signed token between two Martis apps, SSO session limits and revocation, a switch for password sign-in, a challenge (captcha) hook and toast lifetimes. Republish the assets (`php artisan martis:publish-assets`), the config (`php artisan vendor:publish --tag=martis-config --force`, or copy the new keys by hand) and the extension shims (`php artisan vendor:publish --tag=martis-extension-shims --force`). Every new feature is off by default. These behaviours change without any config:
+
+- **`window.MartisConfig.auth` carries only what the SPA reads.** It no longer has: any key of an SSO provider block other than `enabled`, `label` and `icon`; disabled providers; `passwordReset.broker`; `registration.default_role`; `magicLink.ttlMinutes` and `magic_link.auto_register`; `emailVerification.notice_url`; `passwordChange.column`; the snake_case duplicates (`magic_link`, `email_verification`, `password_change`); the flat `google` block; any key an app added. A custom `auth:login` component that read one of them lists the provider keys it needs in that provider's `public` array, or fetches the rest from an endpoint of the app. Only `auth` is an allow-list: the other blocks of the shell are published whole, as before.
+- **A refused SSO identity leaves no row.** The role decision now comes before the local user is written, so an identity with no matching role creates no user and does not rewrite the name or email of an existing one. An identity with no role and no local user is refused as `no_role_match` (it was "not provisioned"), and `MartisSso::resolveUserUsing()` is not called for it. An app that pre-provisions rows through refused sign-ins sets `provision_on_deny => true` on the provider.
+- **`external_id` matching writes the id.** Auto-created users get the id column filled, and the second sign-in finds them. A row created by v2.20 or earlier has an empty column: set `link_by_email => true` on the provider to link it on its next sign-in (the row must pass the same email check as the `email` strategy), or fill the column yourself. A custom `resolveUserUsing()` still wins.
+- **Values that were silently ignored now throw**, naming the key: an unknown `identity_match_attribute`, a non-string `identity_external_id_column`, an `on_no_role_match` other than `deny`, `guest` or `callable` (it signed the user in role-less), a `logout_url` that is neither a string nor null.
+- **SSO callback URLs are lower case.** `/sso/Azure/callback` is a 404. Check the redirect URI registered at the IdP.
+- **The failed-callback log line changed**: its context is `provider`, `reason`, `request_id`, `exception`, `error` (credentials masked); the `email` key is gone. A failure after the user was resolved (a throwing `afterLogin` hook, a unique index) is now a refusal on the login page, not a 500.
+- **A refused SSO sign-in shows an error toast on the login page** (the text of the exception's `messageKey`, else the generic one). It showed nothing before. A custom `auth:login` component reads it from `window.MartisConfig.flash.sso`.
+- **New refusal reason `unlinked_account`**: an `external_id` sign-in whose address is held by a local row with no id, with `link_by_email` off. It was reported as `account_unverified`; a listener on `SsoFailed` or a log alert keyed on that reason adds the new one.
+- **The SPA waits 300 ms before it leaves for `login?expired=1` on a 401**, so a response that carries `sso_reauth_url` can win.
+- **`MartisSso::afterLogin()` appends.** Registering twice ran only the last closure; both run now, in order. `MartisSso::forgetHooks()` clears them.
+- **`RouteMiddleware::authenticated()` includes `martis.sso.session`.** A host that copies the middleware list by hand adds it after the guard. An SSO session costs one cache read per request, and a failing cache store ends SSO sessions.
+- **`php artisan martis:sso azure|google|github` now inserts its block** into a published config that only had the commented example.
+
+To use the new features:
+
+- **SSO-only panel**: `MARTIS_PASSWORD_LOGIN_ENABLED=false`, and turn registration, magic link and invitations off if they are on. Sessions that already exist are not ended: cycle the remember tokens and clear the session store when you switch. See [Authentication](authentication.md).
+- **Session limits**: `max_session_minutes` or `revalidate_every_minutes` on a provider need `remember => false` on it (the combination throws). Sessions opened before the upgrade have no sign-in time and end at their next request once a limit is set.
+- **Signed token**: both panels run v2.21.0 or later; `ext-sodium` is required on both. Start with `php artisan martis:sso:keys`, then [SSO, section 18](sso.md).
+- **Subclasses**: `IdentityResolver`'s protected `find()` is now `findByEmail()` / `findByExternalId()`, and `create()` / `syncAttributes()` take the provider and its config; `SsoSession::start()` and `SsoIdentity` have a new optional last parameter.
+
 ## Upgrading to v2.20.0 from v2.19.x
 
 v2.20.0 adds opt-in performance hooks: lazy extension components, cached and batched sidebar counts, metric TTLs in seconds, a per-page prefetch hook with batched action visibility, and PostgreSQL search tooling. Republish the assets (`php artisan martis:publish-assets`) and the config (`php artisan vendor:publish --tag=martis-config --force`, or copy the new keys by hand). Nothing else has to change in an app; check these if they apply:

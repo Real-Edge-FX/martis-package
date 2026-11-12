@@ -9,6 +9,7 @@ import { config } from '@/lib/config'
 import { useAuthCopy } from '@/lib/authCopy'
 import { AuthFrame } from '@/components/auth/AuthFrame'
 import { FieldError } from '@/components/auth/FieldError'
+import { AuthChallenge, useAuthChallenge } from '@/components/auth/AuthChallenge'
 
 /**
  * Forgot password — request a reset link.
@@ -33,6 +34,7 @@ export function ForgotPasswordPage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [submitting, setSubmitting] = useState(false)
   const [sent, setSent] = useState(false)
+  const challenge = useAuthChallenge('forgot')
 
   const passwordReset = config.auth?.passwordReset
   const enabled = passwordReset?.enabled === true && !passwordReset?.url
@@ -62,10 +64,11 @@ export function ForgotPasswordPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    if (challenge.misconfigured) return
     setErrors({})
     setSubmitting(true)
     try {
-      await api.post('/api/auth/password/email', { email })
+      await api.post('/api/auth/password/email', { email, ...challenge.fields('forgot') })
       setSent(true)
       addToast(
         'success',
@@ -74,6 +77,8 @@ export function ForgotPasswordPage() {
         }),
       )
     } catch (err) {
+      // A challenge token is usable once: ask the widget for a new one.
+      challenge.reset()
       if (err instanceof ApiError) {
         if (err.status === 422 && err.errors) {
           setErrors(err.errorsByField())
@@ -128,6 +133,8 @@ export function ForgotPasswordPage() {
           />
           <FieldError message={errors.email} />
         </div>
+
+        <AuthChallenge challenge={challenge} error={errors.challenge_token} />
 
         <button
           type="submit"

@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next"
 import { ArrowRightIcon, BuildingsIcon, EyeIcon, EyeSlashIcon } from "@phosphor-icons/react"
 import { AuthFrame } from "@/components/auth/AuthFrame"
 import { FieldError } from "@/components/auth/FieldError"
+import { AuthChallenge, useAuthChallenge, type ChallengeSurface } from "@/components/auth/AuthChallenge"
 import { ResourceIcon } from "@/components/ResourceIcon"
 import { BASE_PATH } from "@/lib/config"
 import { EMAIL_CHANGE_FALLBACKS, emailChangeOutcome } from "@/lib/emailChangeOutcome"
@@ -44,12 +45,31 @@ export function LoginPage() {
   const ssoProviders = ssoEnabled
     ? Object.entries(config.auth?.sso?.providers ?? {}).filter(([, p]) => p?.enabled === true)
     : []
-  const showDivider = ssoProviders.length > 0
   const showForgot = isFlowEnabled(passwordReset)
   const showRegister = isFlowEnabled(registration)
   const magicLink = config.auth?.magicLink
   const showMagicLink = magicLink?.enabled === true
   const [magicLinkSubmitting, setMagicLinkSubmitting] = useState(false)
+
+  // Password sign-in switched off (v2.21.0): the page shows the SSO buttons
+  // only. `?password_login=1` still opens the form, the break-glass entry:
+  // the page decides nothing about who may use it, the server does.
+  const passwordLoginOn = config.auth?.passwordLogin?.enabled !== false
+  const breakGlassEntry = new URLSearchParams(window.location.search).get('password_login') === '1'
+  const showPasswordForm = passwordLoginOn || breakGlassEntry
+  // The email field serves the password form and the magic-link request.
+  const showEmailField = showPasswordForm || showMagicLink
+  const showForm = showEmailField || showRegister
+  const showDivider = ssoProviders.length > 0 && showForm
+  // The SSO-only subtitle belongs to a page where the SSO buttons are all there
+  // is: no password form, no magic-link request and no registration link.
+  const ssoOnly = ssoProviders.length > 0 && !showForm
+
+  // The challenge covers the surfaces this page can submit to.
+  const challengeSurfaces: ChallengeSurface[] = []
+  if (showPasswordForm) challengeSurfaces.push('login')
+  if (showMagicLink) challengeSurfaces.push('magic_link')
+  const challenge = useAuthChallenge(challengeSurfaces)
 
   // Detect session-expired redirect from api.ts global 401 handler.
   // The toast + history rewrite are deferred to the next macrotask so
@@ -73,6 +93,25 @@ export function LoginPage() {
 
     return () => window.clearTimeout(handle)
   }, [addToast, t])
+
+  // Detect arrival from a refused SSO sign-in (v2.21.0): the callback redirects
+  // here with an error, and the shell publishes its text as
+  // `MartisConfig.flash.sso` (once: the server reads it from the session
+  // flash). Same deferred-toast pattern as the session-expired branch above,
+  // and the toast consumes the entry, so a re-run shows nothing twice. It
+  // does not depend on the SSO buttons or the password form being on the page.
+  useEffect(() => {
+    const flash = config.flash
+    if (typeof flash?.sso !== 'string' || flash.sso === '') return
+
+    const handle = window.setTimeout(() => {
+      if (typeof flash.sso !== 'string' || flash.sso === '') return
+      addToast('error', flash.sso)
+      flash.sso = null
+    }, 0)
+
+    return () => window.clearTimeout(handle)
+  }, [addToast])
 
   // Detect arrival from the verification-link controller (v1.8.16). Same
   // deferred-toast pattern as the session-expired branch above so the
@@ -146,6 +185,9 @@ export function LoginPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    // No password field on the page (SSO-only, magic link only): Enter in the
+    // email field must not post an empty password.
+    if (!showPasswordForm || challenge.misconfigured) return
     const formData = new FormData(e.currentTarget as HTMLFormElement)
     const submittedEmail = String(formData.get("email") ?? email).trim()
     const submittedPassword = String(formData.get("password") ?? password)
@@ -155,8 +197,10 @@ export function LoginPage() {
     setErrors({})
     setSubmitting(true)
     try {
-      await login(submittedEmail, submittedPassword, keepSignedIn)
+      await login(submittedEmail, submittedPassword, keepSignedIn, challenge.fields('login'))
     } catch (err) {
+      // A challenge token is usable once: ask the widget for a new one.
+      challenge.reset()
       if (err instanceof TwoFactorRequiredError) {
         navigate('/2fa/challenge', { replace: true })
         return
@@ -216,6 +260,8 @@ export function LoginPage() {
     // has actually filled the field in.
     setErrors({})
 
+    if (challenge.misconfigured) return
+
     if (!email.trim()) {
       setErrors({ email: t('email_required', { defaultValue: 'Email is required.' }) })
       return
@@ -227,12 +273,19 @@ export function LoginPage() {
       // configured Martis path prefix). Passing a leading-`/api/...`
       // path here is the same convention every other auth call uses
       // (see `ForgotPassword.tsx` for a parallel).
-      await api.post('/api/auth/magic-link/request', { email })
+      await api.post('/api/auth/magic-link/request', { email, ...challenge.fields('magic_link') })
+      // The token is spent by the request that succeeded too: the next one
+      // needs a fresh one, not a refusal first.
+      challenge.reset()
       addToast(
         'success',
         t('magic_link_sent', { defaultValue: 'If an account exists for that email, a sign-in link is on its way.' }),
       )
     } catch (err) {
+      challenge.reset()
+      if (err instanceof ApiError && err.status === 422 && err.errors) {
+        setErrors(err.errorsByField())
+      }
       const msg = err instanceof ApiError && err.message
         ? err.message
         : t('magic_link_unavailable', { defaultValue: 'Magic-link sign-in is temporarily unavailable. Please try again later.' })
@@ -248,9 +301,11 @@ export function LoginPage() {
         {tCopy('login', 'title', 'login_title', 'Sign in to your workspace')}
       </h2>
       <p className="martis-auth-sub">
-        {showDivider
-          ? tCopy('login', 'subtitle_with_sso', 'login_sub_v2', 'Welcome back. Continue with SSO or use your email.')
-          : tCopy('login', 'subtitle', 'login_sub', 'Welcome back. Use your email and password to continue.')}
+        {ssoOnly
+          ? tCopy('login', 'subtitle_sso_only', 'login_sub_sso_only', 'Welcome back. Continue with your organisation sign-in.')
+          : ssoProviders.length > 0
+            ? tCopy('login', 'subtitle_with_sso', 'login_sub_v2', 'Welcome back. Continue with SSO or use your email.')
+            : tCopy('login', 'subtitle', 'login_sub', 'Welcome back. Use your email and password to continue.')}
       </p>
 
       {ssoProviders.map(([providerName, provider], idx) => (
@@ -276,11 +331,13 @@ export function LoginPage() {
         </div>
       )}
 
+      {showForm && (
       <form
         onSubmit={(e) => void handleSubmit(e)}
         noValidate
         style={{ marginTop: showDivider ? 0 : 20 }}
       >
+        {showEmailField && (
         <div style={{ marginBottom: 12 }}>
           <label
             htmlFor="login-email"
@@ -307,7 +364,9 @@ export function LoginPage() {
           />
           <FieldError message={errors.email} />
         </div>
+        )}
 
+        {showPasswordForm && (
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, alignItems: 'center' }}>
             <label htmlFor="login-password" style={{ fontSize: 13, color: 'var(--martis-text-muted)' }}>
@@ -365,7 +424,9 @@ export function LoginPage() {
           </div>
           <FieldError message={errors.password} />
         </div>
+        )}
 
+        {showPasswordForm && (
         <label className="martis-auth-toggle" style={{ marginBottom: 16 }}>
           <input
             type="checkbox"
@@ -375,7 +436,11 @@ export function LoginPage() {
           <span className="martis-auth-toggle-track" aria-hidden="true" />
           <span>{t('keep_signed_in', { defaultValue: 'Keep me signed in on this device' })}</span>
         </label>
+        )}
 
+        <AuthChallenge challenge={challenge} error={errors.challenge_token} />
+
+        {showPasswordForm && (
         <button
           type="submit"
           disabled={submitting}
@@ -385,6 +450,7 @@ export function LoginPage() {
           {submitting ? t('signing_in') : t('sign_in')}
           {!submitting && <ArrowRightIcon size={14} weight="bold" />}
         </button>
+        )}
 
         {showMagicLink && (
           <button
@@ -392,7 +458,7 @@ export function LoginPage() {
             onClick={() => void handleMagicLinkRequest()}
             disabled={magicLinkSubmitting || submitting}
             className="martis-btn-secondary"
-            style={{ width: '100%', justifyContent: 'center', height: 40, marginTop: 10 }}
+            style={{ width: '100%', justifyContent: 'center', height: 40, marginTop: showPasswordForm ? 10 : 0 }}
           >
             {magicLinkSubmitting
               ? t('magic_link_button_sending', { defaultValue: 'Sending…' })
@@ -421,6 +487,7 @@ export function LoginPage() {
           </div>
         )}
       </form>
+      )}
     </AuthFrame>
   )
 }

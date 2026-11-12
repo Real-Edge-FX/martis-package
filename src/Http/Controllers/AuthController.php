@@ -3,7 +3,6 @@
 namespace Martis\Http\Controllers;
 
 use Illuminate\Contracts\Auth\Authenticatable;
-use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Contracts\Auth\StatefulGuard;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
@@ -12,10 +11,14 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 use Martis\Auth\AccountLoginThrottle;
+use Martis\Auth\EmailVerificationRequirement;
+use Martis\Auth\IntendedUrl;
 use Martis\Auth\PanelAccess;
 use Martis\Auth\PasswordBrokerConfigurationException;
 use Martis\Auth\PasswordChangeRequirement;
+use Martis\Auth\PasswordLogin;
 use Martis\Auth\RememberedTwoFactor;
 use Martis\Auth\TwoFactorPass;
 use Martis\Contracts\ProfileResourceContract;
@@ -25,7 +28,9 @@ use Martis\Contracts\SendsPasswordResetLinks;
 use Martis\Http\Controllers\Concerns\AuthenticatesWithRememberMe;
 use Martis\Profile\TwoFactorService;
 use Martis\Sso\SsoSession;
+use Martis\Sso\SsoSessionEnforcer;
 use Martis\Support\Initials;
+use Throwable;
 
 class AuthController extends MartisController
 {
@@ -52,7 +57,18 @@ class AuthController extends MartisController
         /** @var string|null $guardName */
         $guardName = config('martis.guard');
 
-        $user = auth()->guard($guardName)->user();
+        $guard = auth()->guard($guardName);
+
+        // A session the `martis.sso.session` middleware would end (too old,
+        // revoked, or the provider says the person is gone) answers as signed
+        // out, and is ended here by the same logic: this route runs without
+        // the middleware, so the SPA would otherwise bootstrap into a session
+        // that every other route refuses.
+        if ($guard instanceof StatefulGuard && app(SsoSessionEnforcer::class)->endIfRequired($request, $guard) !== null) {
+            return response('null', 200)->header('Content-Type', 'application/json');
+        }
+
+        $user = $guard->user();
 
         if ($user === null) {
             // Laravel 12 response()->json(null) returns {} due to Symfony null coalescing.
@@ -76,7 +92,7 @@ class AuthController extends MartisController
         // /email/verify on bootstrap (post-login refresh, deep-link reload).
         // Mirrors the two_factor_pending shape so the frontend handles both
         // gates the same way. v1.8.14+.
-        if ($this->emailVerificationRequired($user)) {
+        if (EmailVerificationRequirement::requiredFor($user)) {
             return response()->json([
                 'email_verification_pending' => true,
                 'message' => 'Email verification required.',
@@ -180,7 +196,7 @@ class AuthController extends MartisController
         // /martis/. Without this the user lands on the dashboard, every
         // protected API call 409s, and the experience reads as "the
         // gate doesn't work". v1.8.14+.
-        if ($user && $this->emailVerificationRequired($user)) {
+        if ($user && EmailVerificationRequirement::requiredFor($user)) {
             return response()->json([
                 'email_verification_required' => true,
                 'message' => 'Email verification required.',
@@ -199,10 +215,15 @@ class AuthController extends MartisController
         /** @var Model&Authenticatable $loginUser */
         $loginUser = $user;
 
+        // The page the person asked for before they were sent to the login
+        // page, for the SPA to open instead of the dashboard (IntendedUrl).
+        $intended = IntendedUrl::pullWhenSignedIn($request, $loginUser);
+
         return response()->json(array_merge(
             $this->safeUserArray($loginUser),
             $this->avatarPayload($loginUser),
             ['panel_access' => PanelAccess::allows($loginUser)],
+            $intended !== null ? ['intended_url' => $intended] : [],
         ));
     }
 
@@ -234,8 +255,9 @@ class AuthController extends MartisController
         // signing out: after a remember-me re-login the origin is in
         // the SSO cookie of this user (SsoSession).
         $ssoProvider = (string) (SsoSession::provider($request, $auth->user()) ?? '');
+        $loginUrl = (string) url('/'.ltrim((string) config('martis.path', 'martis'), '/').'/login');
         $logoutUrl = $ssoProvider !== ''
-            ? (string) (config("martis.auth.sso.providers.{$ssoProvider}.logout_url") ?? '')
+            ? $this->federatedLogoutUrl($request, $ssoProvider, $auth->user(), $loginUrl)
             : '';
 
         $auth->logout();
@@ -246,16 +268,6 @@ class AuthController extends MartisController
         RememberedTwoFactor::forget();
 
         if ($logoutUrl !== '') {
-            // Replace `{post_logout_redirect_uri}` with the canonical
-            // post-logout target (Martis login page) so consumers can
-            // template the redirect inside the env var.
-            $loginUrl = (string) url('/'.ltrim((string) config('martis.path', 'martis'), '/').'/login');
-            $logoutUrl = str_replace(
-                '{post_logout_redirect_uri}',
-                rawurlencode($loginUrl),
-                $logoutUrl,
-            );
-
             if ($request->expectsJson()) {
                 return response()->json([
                     'message' => 'Logged out',
@@ -271,6 +283,64 @@ class AuthController extends MartisController
         }
 
         return redirect()->route('martis.login');
+    }
+
+    /**
+     * The federated logout URL of an SSO provider, or '' for a local logout
+     * only. `logout_url` is a URL, in which `{post_logout_redirect_uri}` is
+     * replaced with the urlencoded Martis login page URL, or (v2.21.0) the name
+     * of an invokable class, called as `__invoke(Request $request,
+     * ?Authenticatable $user, string $postLogoutRedirectUri): ?string` with the
+     * login page URL as it is (the class encodes it where its URL needs that)
+     * and answering the URL, or null for a local logout only. It runs before
+     * the local logout, while the user is still signed in. A class that throws
+     * is reported and the sign-out goes on locally (v2.21.0).
+     *
+     * @throws InvalidArgumentException when the value names a class that is
+     *                                  not invokable, or the class answers
+     *                                  something that is neither a string nor null
+     */
+    private function federatedLogoutUrl(Request $request, string $provider, ?Authenticatable $user, string $loginUrl): string
+    {
+        $key = "martis.auth.sso.providers.{$provider}.logout_url";
+        $configured = config($key);
+
+        if ($configured === null || $configured === '') {
+            return '';
+        }
+
+        if (! is_string($configured)) {
+            throw new InvalidArgumentException("The [{$key}] config value must be a URL or the name of an invokable class, got ".get_debug_type($configured).'.');
+        }
+
+        // A URL never looks like a class name, so it never reaches the autoloader.
+        if (preg_match('/^\\\\?[A-Za-z_]\w*(\\\\[A-Za-z_]\w*)*$/', $configured) !== 1 || ! class_exists($configured)) {
+            return str_replace('{post_logout_redirect_uri}', rawurlencode($loginUrl), $configured);
+        }
+
+        $resolver = app($configured);
+
+        if (! is_callable($resolver)) {
+            throw new InvalidArgumentException("The [{$key}] config value names the class [{$configured}], which is not invokable: give it an __invoke(Request, ?Authenticatable, string): ?string method, or a plain URL.");
+        }
+
+        // The class asks the IdP for things (discovery, an id_token_hint): an
+        // IdP that is down must not make the sign-out impossible. The local
+        // logout always happens; the failure is reported and there is no
+        // federated URL. Configuration errors (above and below) still throw.
+        try {
+            $url = $resolver($request, $user, $loginUrl);
+        } catch (Throwable $e) {
+            report($e);
+
+            return '';
+        }
+
+        if ($url !== null && ! is_string($url)) {
+            throw new InvalidArgumentException("The class [{$configured}] named by [{$key}] must return a URL string or null, got ".get_debug_type($url).'.');
+        }
+
+        return $url ?? '';
     }
 
     /**
@@ -331,7 +401,7 @@ class AuthController extends MartisController
      */
     public function sendPasswordResetLink(Request $request, SendsPasswordResetLinks $sender): JsonResponse
     {
-        if (! config('martis.auth.passwordReset.enabled', false)) {
+        if (! PasswordLogin::passwordResetEnabled()) {
             return response()->json([
                 'message' => __('auth.forgot_password_disabled'),
             ], 404);
@@ -352,7 +422,7 @@ class AuthController extends MartisController
             // configuration error, not an unavailable mailer: let it fail
             // loudly, naming the config key.
             throw $e;
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             report($e);
 
             return response()->json([
@@ -403,7 +473,7 @@ class AuthController extends MartisController
      */
     public function resetPassword(Request $request, ResetsUserPasswords $resetter): JsonResponse
     {
-        if (! config('martis.auth.passwordReset.enabled', false)) {
+        if (! PasswordLogin::passwordResetEnabled()) {
             return response()->json(['message' => 'Password reset is disabled.'], 404);
         }
 
@@ -434,50 +504,6 @@ class AuthController extends MartisController
      *
      * @return array<string, mixed>
      */
-    /**
-     * Whether the workspace requires email verification AND this user
-     * has not yet confirmed.
-     *
-     * Mirrors the resolution chain in
-     * `Martis\Http\Middleware\EnsureEmailIsVerified::emailIsVerified()`
-     * so the login + user endpoints gate on the same conditions as the
-     * post-auth route guard. Two paths:
-     *
-     *   1. User implements `MustVerifyEmail` → call `hasVerifiedEmail()`.
-     *   2. User exposes the `email_verified_at` column (default Laravel
-     *      users table) → check it directly. Column null = pending.
-     *      Column missing = treat as pending (fail-safe).
-     */
-    private function emailVerificationRequired(Authenticatable $user): bool
-    {
-        if (! (bool) config('martis.auth.email_verification.enabled', false)) {
-            return false;
-        }
-
-        if ($user instanceof MustVerifyEmail) {
-            return ! $user->hasVerifiedEmail();
-        }
-
-        if (method_exists($user, 'getAttribute')) {
-            $value = $user->getAttribute('email_verified_at');
-            if ($value !== null) {
-                return false;
-            }
-
-            if (method_exists($user, 'getAttributes')) {
-                /** @var array<string, mixed> $attrs */
-                $attrs = $user->getAttributes();
-                if (array_key_exists('email_verified_at', $attrs)) {
-                    return true;
-                }
-            }
-        }
-
-        // Column missing AND no contract — fail-safe so a misconfigured
-        // app doesn't accidentally let unverified accounts through with
-        // the flag on.
-        return true;
-    }
 
     /**
      * Return a sanitised user array safe for client responses.

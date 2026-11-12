@@ -8,6 +8,7 @@ import {
 } from 'react'
 import { api } from '@/lib/api'
 import { BASE_PATH } from '@/lib/config'
+import { panelUrlTarget } from '@/lib/panelUrl'
 import { signOut } from '@/lib/signOut'
 import { isOnPage, passwordChangeUrl } from '@/lib/passwordChange'
 import { purgeForeignStickyViews } from '@/lib/useStickyView'
@@ -50,7 +51,8 @@ export class PasswordChangeRequiredError extends Error {
 interface AuthContextValue {
   user: User | null
   isLoading: boolean
-  login: (email: string, password: string, keepSignedIn?: boolean) => Promise<void>
+  /** `extra` is merged into the request body: the `challenge_token` of the challenge hook (v2.21.0). */
+  login: (email: string, password: string, keepSignedIn?: boolean, extra?: { challenge_token?: string }) => Promise<void>
   logout: () => Promise<void>
   updateUser: (partial: Partial<User>) => void
 }
@@ -122,12 +124,18 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
     if (userId !== undefined && userId !== null) purgeForeignStickyViews(userId)
   }, [userId])
 
-  const login = useCallback(async (email: string, password: string, keepSignedIn = false) => {
+  const login = useCallback(async (
+    email: string,
+    password: string,
+    keepSignedIn = false,
+    extra: { challenge_token?: string } = {},
+  ) => {
     const res = await api.post<User & {
       two_factor_required?: boolean
       email_verification_required?: boolean
       password_change_required?: boolean
-    }>('/api/auth/login', { email, password, keep_signed_in: keepSignedIn })
+      intended_url?: string
+    }>('/api/auth/login', { email, password, keep_signed_in: keepSignedIn, ...extra })
     if (res && typeof res === 'object' && res.two_factor_required) {
       // Backend signals that 2FA challenge is required before full session
       throw new TwoFactorRequiredError()
@@ -143,6 +151,20 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
       // The forced password change gate holds the user (v2.3.0): the
       // session is alive, the destination is the change page.
       throw new PasswordChangeRequiredError()
+    }
+    // The page asked for before the sign-in (v2.21.0), which the server only
+    // sends once the sign-in is complete: open it with a full load, which
+    // also starts the shell over for the new session. Anything that is not a
+    // path under the base path on this origin is dropped.
+    if (res && typeof res === 'object' && 'intended_url' in res) {
+      const { intended_url: intended, ...signedIn } = res
+      const target = panelUrlTarget(intended)
+      if (target !== null) {
+        window.location.href = target
+        return
+      }
+      setUser(signedIn as User)
+      return
     }
     setUser(res)
   }, [])

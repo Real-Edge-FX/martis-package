@@ -54,6 +54,7 @@ import { apiPath, pathSegment, routePath, withQuery } from '@/lib/apiPath'
 import { config } from '@/lib/config'
 import { martisEventBus } from '@/lib/eventBus'
 import { AuthFrame } from '@/components/auth/AuthFrame'
+import { AuthChallenge, useAuthChallenge } from '@/components/auth/AuthChallenge'
 import { Sidebar } from '@/components/Sidebar'
 import { Topbar } from '@/components/Topbar'
 import { Footer } from '@/components/Footer'
@@ -146,6 +147,12 @@ export const martisRuntime = {
 
   // Components consumer overrides typically compose with.
   AuthFrame,
+  // The challenge (captcha) wiring of the public auth forms (v2.21.0), for an
+  // `auth:*` override that keeps the hook: `useAuthChallenge(surface)` holds
+  // the token and the reset, `<AuthChallenge challenge={...} />` renders the
+  // registered `auth:challenge` widget.
+  useAuthChallenge,
+  AuthChallenge,
   Sidebar,
   Topbar,
   Footer,
@@ -433,6 +440,16 @@ export type { ActionResponseModalProps } from '@/components/Actions/ActionRespon
  * a phone.
  */
 export type { TopbarSlotProps, TopbarSlotPlacement } from '@/components/TopbarSlot'
+
+/**
+ * The props of the `auth:challenge` component (v2.21.0), the captcha widget
+ * the public auth forms render while `martis.auth.challenge` is enabled:
+ * `siteKey`, the `surface` it sits on, `onToken` and `resetSignal`. The
+ * runtime also serves `useAuthChallenge` and `AuthChallenge` (the state of
+ * the challenge on a form and the component that renders the widget), typed
+ * by `AuthChallengeState` and `ChallengeSurface`.
+ */
+export type { AuthChallengeProps, AuthChallengeState, ChallengeSurface } from '@/components/auth/AuthChallenge'
 
 /**
  * Types for the v1.38.0 members: the props of a layout registered on
