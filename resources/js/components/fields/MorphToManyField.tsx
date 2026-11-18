@@ -576,6 +576,7 @@ function AttachModal({
 }) {
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
+  const { t: tRes } = useTranslation('resources')
 
   useModalHistoryLock(true)
 
@@ -761,7 +762,7 @@ function AttachModal({
                 field="_title"
                 header={
                   <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
-                    {tMsg('title', 'Title')}
+                    {tRes('record_title', 'Title')}
                   </span>
                 }
                 body={(row: ResourceRecord) => (

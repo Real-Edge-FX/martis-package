@@ -60,10 +60,10 @@ final class Handler
         // catch-all Laravel renders them itself; inside one (the delete and
         // restore guards) they would otherwise be flattened to a 500.
         if ($e instanceof LaravelValidationException) {
-            return response()->json([
-                'message' => $e->getMessage(),
-                'errors' => $e->errors(),
-            ], $e->status);
+            // Laravel keys its errors by field; the panel reads the list of
+            // `{field, message, code}` every other Martis 422 answers, so
+            // the map is converted rather than passed through.
+            return JsonErrorResponse::validation($e->errors(), $e->getMessage())->toResponse();
         }
 
         if ($e instanceof LaravelAuthorizationException) {

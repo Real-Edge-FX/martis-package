@@ -38,8 +38,17 @@ trait LoadsDeclaredClasses
         $shortName = $position === false ? $class : substr($class, $position + 1);
 
         // Cheap reject before tokenizing: the declared name has to appear
-        // somewhere in the file for the declaration to be there.
+        // somewhere in the file for the declaration to be there. Discovery
+        // runs on every boot, so the common case (a file that declares
+        // nothing, which is the one that must not be executed) costs one
+        // read and one regular expression, never a token pass.
         if (! str_contains($contents, $shortName)) {
+            return false;
+        }
+
+        $quoted = preg_quote($shortName, '/');
+
+        if (preg_match('/\b(?:class|interface|trait|enum)\s+'.$quoted.'\b/i', $contents) !== 1) {
             return false;
         }
 

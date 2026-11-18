@@ -223,12 +223,17 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
     : []
 
   const softDeletes = !!(schema as unknown as { softDeletes?: boolean })?.softDeletes
+  // A headless related resource (`routable(false)`) has no page surface,
+  // and its restore endpoint answers 404 with it, so the panel does not
+  // offer a trash control that cannot answer. A schema that does not say
+  // (an older server) counts as routable, as it always did.
+  const relatedRoutable = (schema as unknown as { routable?: boolean })?.routable !== false
 
   const showView = !hideViewAction
   const showEdit = canUpdate && !hideEditAction && !!editUrl
   const showDelete = canDelete && !hideDeleteAction && !!deleteUrl
-  const showRestore = softDeletes && !hideRestoreAction
-  const showForceDelete = softDeletes && !hideForceDeleteAction
+  const showRestore = softDeletes && relatedRoutable && !hideRestoreAction
+  const showForceDelete = softDeletes && relatedRoutable && !hideForceDeleteAction
   const hasActions = showView || showEdit || showDelete || showRestore || showForceDelete || !!rowActionsExtras || inlineActions.length > 0
 
   const showSearch = searchable && !hideSearch
@@ -420,7 +425,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                   field="_title"
                   header={
                     <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
-                      {tRes('title', 'Title')}
+                      {tRes('record_title', 'Title')}
                     </span>
                   }
                   body={(row: ResourceRecord) => {

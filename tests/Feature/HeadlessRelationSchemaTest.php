@@ -8,6 +8,7 @@ use Martis\Fields\BelongsToMany;
 use Martis\Fields\HasMany;
 use Martis\Fields\Text;
 use Martis\Http\Middleware\MartisAuthenticate;
+use Martis\Layout\Section;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 
@@ -74,6 +75,12 @@ class HrsParentResource extends Resource
             HasMany::make('Others', 'others')->relatedResource('hrs-other-items'),
             HasMany::make('Denied', 'deniedItems')->relatedResource('hrs-denied-items'),
             HasMany::make('Gated', 'gatedItems')->relatedResource('hrs-gated-items'),
+            // A relation inside a layout container. A raw field walk drops
+            // everything nested in a Section, Panel or TabGroup, which has
+            // regressed repeatedly; `Field::filterForContext()` flattens.
+            Section::make('Nested', [
+                HasMany::make('Nested items', 'nestedItems')->relatedResource('hrs-headless-items'),
+            ]),
         ];
     }
 }
@@ -418,6 +425,13 @@ it('still enforces the related resource own viewAny once the relationship is pro
         'viaResource' => 'hrs-parents',
         'viaRelationship' => 'gatedItems',
     ]))->assertForbidden();
+});
+
+it('proves a relationship declared inside a layout container', function () {
+    $this->getJson(hrsSchemaUrl('hrs-headless-items', [
+        'viaResource' => 'hrs-parents',
+        'viaRelationship' => 'nestedItems',
+    ]))->assertOk();
 });
 
 it('leaves a routable resource unaffected and answers 200 without via parameters', function () {

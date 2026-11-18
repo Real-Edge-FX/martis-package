@@ -1368,6 +1368,11 @@ class ResourceController extends MartisController
             'singularLabel' => $resourceClass::singularLabel(),
             'subtitle' => $resourceClass::subtitle(),
             'softDeletes' => $resourceClass::softDeletes() && $resourceClass::canViewTrashed(),
+            // A headless resource has no page surface, and its restore and
+            // destroy endpoints answer 404 with it. A relationship panel
+            // reads this schema (see relationSchemaResource()), so it must
+            // know not to offer a row action that cannot answer.
+            'routable' => $resourceClass::routable(),
             'stickyView' => $resourceClass::stickyView(),
             'maxInlineButtons' => $resourceClass::maxInlineButtons(),
             'prefillKeys' => $resourceClass::acceptsPrefill(),
@@ -2089,7 +2094,9 @@ class ResourceController extends MartisController
                 // so searching it would be a SQL error (or, for the `id`
                 // default, a filter that never ran): the term is then
                 // logged as unhonoured, naming the declaration that fixes
-                // it, and the page stays unfiltered, as Nova leaves it.
+                // it, and the page stays unfiltered: with no column known,
+                // filtering by nothing is the only answer that cannot be
+                // wrong, and it is what this branch has always done.
                 $columns = $relatedResourceClass::relatableSearchColumns();
 
                 if ($columns === []) {

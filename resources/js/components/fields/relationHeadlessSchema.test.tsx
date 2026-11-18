@@ -59,18 +59,18 @@ const NAME_FIELD = {
   sortable: false, searchable: false, showOnIndex: true, showOnDetail: true, showOnForms: true, rules: [],
 } as unknown as FieldDefinition
 
-function answer(fieldsForIndex: FieldDefinition[]): void {
+function answer(fieldsForIndex: FieldDefinition[], schemaExtra: Record<string, unknown> = {}, trashed = false): void {
   vi.mocked(api.get).mockReset()
   vi.mocked(api.get).mockImplementation(((url: string) => {
     if (url.includes('/schema')) {
-      return Promise.resolve({ data: { fieldsForIndex, fieldsForDetail: [], singularLabel: 'Record', softDeletes: false } })
+      return Promise.resolve({ data: { fieldsForIndex, fieldsForDetail: [], singularLabel: 'Record', softDeletes: false, ...schemaExtra } })
     }
     if (url.includes('/actions?')) return Promise.resolve({ data: { actions: [] } })
 
     return Promise.resolve({
       data: [
-        { id: 1, name: 'alpha-name', _title: 'Alpha title', _pivot: {}, _authorization: {} },
-        { id: 2, name: 'beta-name', _title: 'Beta title', _pivot: {}, _authorization: { authorizedToView: false } },
+        { id: 1, name: 'alpha-name', _title: 'Alpha title', _pivot: {}, _authorization: {}, ...(trashed ? { deleted_at: '2026-01-01T00:00:00Z' } : {}) },
+        { id: 2, name: 'beta-name', _title: 'Beta title', _pivot: {}, _authorization: { authorizedToView: false }, ...(trashed ? { deleted_at: '2026-01-01T00:00:00Z' } : {}) },
       ],
       meta: { current_page: 1, from: 1, last_page: 1, per_page: 10, to: 2, total: 2 },
       links: { first: null, last: null, prev: null, next: null },
@@ -142,5 +142,29 @@ describe.each(PANELS)('$type panel — schema with index fields', (panel) => {
     expect(container.querySelectorAll('[data-field="_title"]')).toHaveLength(0)
     expect(screen.queryByText('Alpha title')).toBeNull()
     expect(screen.getAllByText('alpha-name').length).toBeGreaterThan(0)
+  })
+})
+
+/*
+ * A headless related resource has no page surface, and its restore endpoint
+ * answers 404 with it, so the panel must not offer the trash controls that
+ * the schema's `softDeletes` would otherwise turn on.
+ */
+describe.each(PANELS)('$type panel — trash controls follow the related resource routability', (panel) => {
+  it('offers no restore row action for a headless related resource', async () => {
+    answer([NAME_FIELD], { softDeletes: true, routable: false }, true)
+    const { container } = renderPanel(panel)
+
+    await waitFor(() => expect(container.querySelectorAll('[data-testid="row"]')).toHaveLength(2))
+
+    expect(container.querySelectorAll('[data-pr-tooltip="Restore"]')).toHaveLength(0)
+  })
+
+  it('keeps it for a routable related resource', async () => {
+    answer([NAME_FIELD], { softDeletes: true, routable: true }, true)
+    const { container } = renderPanel(panel)
+
+    await waitFor(() => expect(container.querySelectorAll('[data-testid="row"]')).toHaveLength(2))
+    await waitFor(() => expect(container.querySelectorAll('[data-pr-tooltip="Restore"]').length).toBeGreaterThan(0))
   })
 })

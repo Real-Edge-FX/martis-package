@@ -171,8 +171,10 @@ it('answers 422 when a restoring model event throws Laravel validation, not a 50
     try {
         $response = $this->putJson("/martis/api/resources/rde-channel-models/{$trashed->id}/restore");
 
+        // The panel reads a list of {field, message, code}, not Laravel's map.
         $response->assertStatus(422)
-            ->assertJsonPath('errors.kind.0', 'This kind is taken.');
+            ->assertJsonPath('errors.0.field', 'kind')
+            ->assertJsonPath('errors.0.message', 'This kind is taken.');
         expect(RdeChannelModel::withTrashed()->find($trashed->id)->trashed())->toBeTrue();
     } finally {
         RdeChannelModel::flushEventListeners();
