@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -173,6 +174,44 @@ it('answers 422 when a restoring model event throws Laravel validation, not a 50
         $response->assertStatus(422)
             ->assertJsonPath('errors.kind.0', 'This kind is taken.');
         expect(RdeChannelModel::withTrashed()->find($trashed->id)->trashed())->toBeTrue();
+    } finally {
+        RdeChannelModel::flushEventListeners();
+    }
+});
+
+it('attributes the PostgreSQL composite key of the reported index to the field', function () {
+    // The exact detail PostgreSQL prints for the reported index
+    // (`channels_tenant_kind_unique (tenant_id, kind) WHERE deleted_at IS
+    // NULL`). The suite runs on SQLite, so the driver's own message is
+    // replayed here: `tenant_id` is no field of the resource and is
+    // skipped, `kind` carries the error.
+    $trashed = RdeChannelModel::create(['label' => 'Original', 'kind' => 'casa_sapo']);
+    $trashed->delete();
+
+    $pdo = new PDOException('SQLSTATE[23505]: Unique violation');
+    $pdo->errorInfo = [
+        '23505',
+        7,
+        "ERROR:  duplicate key value violates unique constraint \"rde_channels_tenant_kind_unique\"\nDETAIL:  Key (tenant_id, kind)=(1, casa_sapo) already exists.",
+    ];
+
+    RdeChannelModel::restoring(function () use ($pdo): void {
+        throw new UniqueConstraintViolationException('pgsql', 'update "rde_channels" set "deleted_at" = ?', [], $pdo);
+    });
+
+    try {
+        $response = $this->putJson("/martis/api/resources/rde-channel-models/{$trashed->id}/restore");
+
+        $response->assertStatus(422)
+            ->assertJsonPath('message', DatabaseErrorResponse::UNIQUE_MESSAGE);
+
+        $errors = [];
+        foreach ($response->json('errors') as $error) {
+            $errors[$error['field']] = $error['message'];
+        }
+
+        expect($errors)->toBe(['kind' => 'The Kind has already been taken.'])
+            ->and(RdeChannelModel::withTrashed()->find($trashed->id)->trashed())->toBeTrue();
     } finally {
         RdeChannelModel::flushEventListeners();
     }
