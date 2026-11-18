@@ -4,6 +4,7 @@ import { useToastSafe } from '@/contexts/ToastContext'
 import { useNavigate } from 'react-router'
 import { api } from '@/lib/api'
 import { apiPath, routePath, withQuery } from '@/lib/apiPath'
+import { useRelatedResourceSchema } from '@/hooks/useRelatedResourceSchema'
 import type { ResourceRecord, FieldDefinition } from '@/types'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { FieldDisplay } from '@/components/fields/FieldRenderer'
@@ -69,12 +70,10 @@ function MorphOneDetailPanel({ field }: { field: FieldDefinition }) {
   const titleRef = useRef<HTMLHeadingElement>(null)
   const createRef = useRef<HTMLButtonElement>(null)
 
-  // Fetch related resource schema for field definitions
-  const schemaQuery = useQuery({
-    queryKey: ['schema', relatedResource],
-    queryFn: () => api.get<{ data: { fieldsForDetail?: FieldDefinition[]; singularLabel?: string; softDeletes?: boolean } }>(apiPath`/api/resources/${relatedResource}/schema`),
-    enabled: !!relatedResource,
-  })
+  // Fetch related resource schema for field definitions. Naming the
+  // relationship lets a headless (`routable(false)`) relation target
+  // answer, as the many-panels do.
+  const schemaQuery = useRelatedResourceSchema<{ fieldsForDetail?: FieldDefinition[]; singularLabel?: string; softDeletes?: boolean }>(relatedResource, parentResource, relationship)
 
   // Fetch the single related record
   const recordQuery = useQuery({

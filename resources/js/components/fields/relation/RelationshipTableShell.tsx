@@ -13,6 +13,7 @@ import {
 
 import { api } from '@/lib/api'
 import { apiPath } from '@/lib/apiPath'
+import { useRelatedResourceSchema } from '@/hooks/useRelatedResourceSchema'
 import type { PaginatedResponse, ResourceRecord, ResourceSchema, FieldDefinition } from '@/types'
 import { FieldDisplay } from '@/components/fields/FieldRenderer'
 import { DeleteModal } from '@/components/DeleteModal'
@@ -100,6 +101,12 @@ export interface RelationshipTableShellProps {
    *  relationship: the run sends it (`viaResource`, `viaResourceId`,
    *  `viaRelationship`) and reaches only a record it holds. */
   rowActions?: ActionVia
+
+  /** The relationship this panel renders, named so the related resource's
+   *  schema can be read even when it is headless (`routable(false)`).
+   *  See `useRelatedResourceSchema`. */
+  viaResource?: string
+  viaRelationship?: string
 }
 
 export function RelationshipTableShell(props: RelationshipTableShellProps) {
@@ -118,6 +125,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
     defaultTrashed,
     toolbarExtras, rowActionsExtras,
     rowActions,
+    viaResource, viaRelationship,
   } = props
 
   const { t: tAct } = useTranslation('actions')
@@ -139,11 +147,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
   const [activeAction, setActiveAction] = useState<{ action: ActionMeta; id: string | number } | null>(null)
   const [actionDrawer, setActionDrawer] = useState<{ type: 'create' | 'detail' | 'update'; resource: string; recordId?: string | number } | null>(null)
 
-  const schemaQuery = useQuery({
-    queryKey: ['schema', relatedResource],
-    queryFn: () => api.get<{ data: ResourceSchema }>(apiPath`/api/resources/${relatedResource}/schema`),
-    enabled: !!relatedResource,
-  })
+  const schemaQuery = useRelatedResourceSchema<ResourceSchema>(relatedResource, viaResource, viaRelationship)
 
   const recordsQuery = useQuery({
     queryKey: [...queryKey, { search, page, perPage, sort: serializeSort(sort), trashed }],
@@ -210,6 +214,10 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
   const totalCount = pagination?.total ?? records.length
 
   const indexFields: FieldDefinition[] = schema?.fieldsForIndex ?? []
+  // No index fields to render (a schema still loading, or a related
+  // resource whose index fields are all hidden from this user): the record
+  // title keeps every row readable instead of a blank line of actions.
+  const showTitleColumn = indexFields.length === 0 && records.length > 0
   const inlineActions = rowActions
     ? filterInlineActions(((schema as unknown as { actions?: ActionMeta[] })?.actions ?? []))
     : []
@@ -404,6 +412,33 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                       </span>
                     ) : null
                   }
+                />
+              )}
+              {showTitleColumn && (
+                <Column
+                  key="_title"
+                  field="_title"
+                  header={
+                    <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                      {tRes('title', 'Title')}
+                    </span>
+                  }
+                  body={(row: ResourceRecord) => {
+                    const label = (row._title as string | undefined) ?? String(row.id ?? '')
+
+                    return row._authorization?.authorizedToView !== false ? (
+                      <Link
+                        to={viewUrl ? viewUrl(row.id as string | number) : recordHref(relatedResource, row.id)}
+                        className="font-medium no-underline"
+                        style={{ color: 'var(--martis-accent)' }}
+                      >
+                        {label}
+                      </Link>
+                    ) : (
+                      <span className="font-medium">{label}</span>
+                    )
+                  }}
+                  sortable={false}
                 />
               )}
               {indexFields.map((f) => (

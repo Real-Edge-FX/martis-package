@@ -103,7 +103,7 @@ const TRASHED_AT = '2026-09-01T10:00:00.000000Z'
 /** Answer the related schema, and the panel's records (the card's first one). */
 function answerWith(records: Array<Record<string, unknown>>) {
   apiGetMock.mockImplementation((path: string) => {
-    if (path === '/api/resources/projects/schema') {
+    if (path.split('?')[0] === '/api/resources/projects/schema') {
       return Promise.resolve({ data: { fieldsForIndex: [idField, titleField], fieldsForDetail: [titleField], singularLabel: 'Project', softDeletes: true } })
     }
     if (path.includes('/actions')) {

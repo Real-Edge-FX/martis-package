@@ -614,7 +614,54 @@ class ResourceController extends MartisController
             return $this->recordDenied($res, 'restore');
         }
 
-        $model->restore();
+        // A restore is a write like any other: the row re-enters every
+        // partial unique index built on `deleted_at IS NULL`, so a
+        // collision with a live record is the most likely database failure
+        // here. It answers 422 with the colliding field, as store() and
+        // update() do, instead of letting the raw SQL error escape as 500.
+        $fields = Field::filterForModel(
+            Field::filterForContext($res->resolveDetailFields($request), FieldContext::DETAIL),
+            $request,
+            $model,
+        );
+
+        try {
+            $res->beforeRestore($model, $request);
+            $model->restore();
+            $res->afterRestore($model, $request);
+        } catch (QueryException $e) {
+            Log::error('Martis: database error on restore', [
+                'resource' => $resource,
+                'id' => $id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return DatabaseErrorResponse::from($e, $fields, $model);
+        } catch (\Throwable $e) {
+            // A hook that stops the restore on purpose throws a user-facing
+            // exception (see UserFacingException): its message and status
+            // reach the client. Anything else is internal: its message can
+            // hold a path or a class name, so the client gets the generic
+            // one and the details stay in the log and in report().
+            if (MartisExceptionHandler::isUserFacing($e) && ($response = MartisExceptionHandler::render($request, $e)) !== null) {
+                return $response;
+            }
+
+            Log::error('Martis: error on restore', [
+                'resource' => $resource,
+                'id' => $id,
+                'class' => get_class($e),
+                'error' => $e->getMessage(),
+            ]);
+            report($e);
+
+            // `app.debug` is the developer's choice to see the raw message.
+            $message = config('app.debug') === true && $e->getMessage() !== ''
+                ? $e->getMessage()
+                : TranslatedLine::get('martis::messages.error_restore');
+
+            return JsonErrorResponse::serverError($message)->toResponse();
+        }
 
         $res = new $resourceClass($model);
 
@@ -1000,7 +1047,16 @@ class ResourceController extends MartisController
         [$resourceClass, $error] = $this->resolveRoutableResource($resource);
 
         if ($error !== null) {
-            return $error;
+            // A relationship panel reads the related resource's index
+            // columns here. A headless (`routable(false)`) relation target
+            // keeps its page surface 404'd, but answers a request that
+            // names the parent relationship declaring it — gated by the
+            // parent's `viewAny` and by its own `viewAny` below.
+            $resourceClass = $this->relationSchemaResource($request, $resource);
+
+            if ($resourceClass === null) {
+                return $error;
+            }
         }
 
         /** @var class-string<resource> $resourceClass */
@@ -2026,9 +2082,33 @@ class ResourceController extends MartisController
             );
 
             if (empty($searchableFields)) {
-                $titleAttr = $relatedResourceClass::titleAttribute();
-                if ($titleAttr !== 'id') {
-                    $query->where($titleAttr, $likeOp, "%{$search}%");
+                // No searchable field: the picker searches the columns the
+                // resource declares for it, else the title attribute when
+                // that is a real column. A title that comes from an
+                // accessor or from an overridden `title()` is no column,
+                // so searching it would be a SQL error (or, for the `id`
+                // default, a filter that never ran): the term is then
+                // logged as unhonoured, naming the declaration that fixes
+                // it, and the page stays unfiltered, as Nova leaves it.
+                $columns = $relatedResourceClass::relatableSearchColumns();
+
+                if ($columns === []) {
+                    $titleAttr = $relatedResourceClass::titleAttribute();
+                    if ($titleAttr !== 'id' && $this->isRealColumn($query, $titleAttr)) {
+                        $columns = [$titleAttr];
+                    }
+                }
+
+                if ($columns === []) {
+                    Log::warning('Martis: relatable search term ignored, the resource declares no searchable field and no relatableSearchColumns()', [
+                        'resource' => $relatedResourceClass,
+                    ]);
+                } else {
+                    $query->where(function (Builder $q) use ($columns, $search, $likeOp): void {
+                        foreach ($columns as $column) {
+                            $q->orWhere($column, $likeOp, "%{$search}%");
+                        }
+                    });
                 }
             } else {
                 $query->where(function (Builder $q) use ($searchableFields, $search, $likeOp): void {
@@ -2300,6 +2380,90 @@ class ResourceController extends MartisController
         }
 
         return [$resourceClass, null];
+    }
+
+    /**
+     * Whether the query's table really has that column.
+     *
+     * The schema read can fail (a driver without introspection, PostgreSQL
+     * inside an aborted transaction): the column then counts as unknown,
+     * so no statement is built on a guess.
+     *
+     * @param  Builder<Model>  $query
+     */
+    private function isRealColumn(Builder $query, string $column): bool
+    {
+        $model = $query->getModel();
+
+        try {
+            return in_array(
+                strtolower($column),
+                array_map(strtolower(...), $model->getConnection()->getSchemaBuilder()->getColumnListing($model->getTable())),
+                true,
+            );
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * The resource a schema request may read although it is not routable:
+     * the target of the relationship the request names with `viaResource`
+     * and `viaRelationship`.
+     *
+     * `routable(false)` removes a resource's human page surface while
+     * keeping it usable as a relation target and data source (see
+     * `docs/resources.md` → `routable()`). Its relationship panels need
+     * its index field definitions to render columns, so the schema is part
+     * of that relation surface. The request has to prove the relation:
+     * the named parent must be registered, listable by this user, and
+     * declare on its detail page a relationship field with that name
+     * pointing at this very resource. Nothing here relaxes the resource's
+     * own `authorizedToViewAny()`, which the caller checks next.
+     *
+     * @return class-string<resource>|null
+     */
+    private function relationSchemaResource(Request $request, string $uriKey): ?string
+    {
+        $viaResource = $request->query('viaResource');
+        $viaRelationship = $request->query('viaRelationship');
+
+        if (! is_string($viaResource) || ! is_string($viaRelationship)) {
+            return null;
+        }
+
+        if ($viaResource === '' || $viaRelationship === '') {
+            return null;
+        }
+
+        if (! $this->registry->has($uriKey) || ! $this->registry->has($viaResource)) {
+            return null;
+        }
+
+        /** @var class-string<resource> $resourceClass */
+        $resourceClass = $this->registry->get($uriKey);
+        /** @var class-string<resource> $parentResourceClass */
+        $parentResourceClass = $this->registry->get($viaResource);
+
+        $parent = new $parentResourceClass;
+
+        if (! $parent->authorizedToViewAny($request)) {
+            return null;
+        }
+
+        $fields = Field::filterForContext($parent->resolveDetailFields($request), FieldContext::DETAIL);
+
+        foreach ($fields as $field) {
+            if (! method_exists($field, 'getRelationship') || ! method_exists($field, 'getRelatedResourceKey')) {
+                continue;
+            }
+
+            if ($field->getRelationship() === $viaRelationship && $field->getRelatedResourceKey() === $uriKey) {
+                return $resourceClass;
+            }
+        }
+
+        return null;
     }
 
     /**

@@ -55,7 +55,7 @@ const comments = {
 beforeEach(() => {
   apiGetMock.mockReset()
   apiGetMock.mockImplementation((path: string) => {
-    if (path === '/api/resources/comments/schema') return Promise.resolve({ data: comments })
+    if (path.split('?')[0] === '/api/resources/comments/schema') return Promise.resolve({ data: comments })
     if (path === '/api/resources/posts/1') return Promise.resolve({ data: { id: 1, _title: 'First post' } })
     return Promise.resolve({ data: [] })
   })

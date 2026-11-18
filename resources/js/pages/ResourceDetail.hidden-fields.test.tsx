@@ -65,7 +65,7 @@ const HIDDEN = ['salary', 'active', 'bonus', 'bonus_note', 'owner']
 
 function renderDetail(record: Record<string, unknown>) {
   apiGetMock.mockImplementation((path: string) => {
-    if (path === '/api/resources/employees/schema') return Promise.resolve({ data: employees })
+    if (path.split('?')[0] === '/api/resources/employees/schema') return Promise.resolve({ data: employees })
     if (path === '/api/resources/employees/1') return Promise.resolve({ data: record })
     return Promise.resolve({ data: [] })
   })

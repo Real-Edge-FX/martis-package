@@ -55,6 +55,14 @@ interface ResourceContract
     /** Return the model attribute used as the display title (e.g. "name"). */
     public static function titleAttribute(): string;
 
+    /**
+     * Columns a relation picker searches over this resource when it
+     * declares no searchable field (see Resource::relatableSearchColumns()).
+     *
+     * @return list<string>
+     */
+    public static function relatableSearchColumns(): array;
+
     /** Return the display title for a specific model instance. */
     public function title(): string;
 
@@ -432,6 +440,12 @@ interface ResourceContract
 
     /** Called after a model is deleted. */
     public function afterDelete(Model $model, Request $request): void;
+
+    /** Called before a soft-deleted model is restored. */
+    public function beforeRestore(Model $model, Request $request): void;
+
+    /** Called after a soft-deleted model is restored. */
+    public function afterRestore(Model $model, Request $request): void;
 
     // -------------------------------------------------------------------------
     // User-facing messages (i18n)

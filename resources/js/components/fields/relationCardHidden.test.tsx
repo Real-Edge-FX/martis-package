@@ -46,7 +46,7 @@ function card(type: string, metaKey: string): FieldDefinition {
 
 function answerWith(meta: Record<string, unknown>) {
   apiGetMock.mockImplementation((path: string) => {
-    if (path === '/api/resources/profiles/schema') {
+    if (path.split('?')[0] === '/api/resources/profiles/schema') {
       return Promise.resolve({ data: { fieldsForDetail: [titleField], singularLabel: 'Profile' } })
     }
     return Promise.resolve({ data: null, meta, links: [] })

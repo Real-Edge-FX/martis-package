@@ -34,7 +34,7 @@ const schema = {
 describe('ResourceDetailPage actions for a record that cannot run them', () => {
   it('grays out a Disabled action, leaves out Hide and KeepSlot, and keeps the runnable ones', async () => {
     apiGetMock.mockImplementation((path: string) => {
-      if (path === '/api/resources/items/schema') return Promise.resolve({ data: schema })
+      if (path.split('?')[0] === '/api/resources/items/schema') return Promise.resolve({ data: schema })
       if (path === '/api/resources/items/1') {
         return Promise.resolve({ data: { id: 1, _title: 'Spring guide', _actionAuthorization: { archive: false, 'switch-on': false, 'move-up': false, 'switch-off': true } } })
       }

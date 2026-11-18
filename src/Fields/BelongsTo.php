@@ -319,17 +319,33 @@ class BelongsTo extends Field implements ProvidesPickerAttributes
             $relationshipName = $camelRelationship;
         }
         if ($relationshipName !== null) {
-            $relation = $model->{$relationshipName}();
-            $relatedClass = get_class($relation->getRelated());
-            $usesSoftDeletes = in_array(SoftDeletes::class, class_uses_recursive($relatedClass), true);
-            if ($usesSoftDeletes) {
-                // withTrashed() is provided at runtime by SoftDeletingScope via
-                // __call — method_exists() returns false but the call still
-                // resolves. Checking whether the related model uses the trait
-                // is enough.
-                $related = $relation->withTrashed()->first();
-            } else {
-                $related = $model->{$relationshipName};
+            // An index that eager-loads the relation (`$with`, `with()` in
+            // `indexQuery()`) already holds the related model: reuse it, so
+            // a title that reads a further relation costs no extra query
+            // per row. A loaded relation that is null still falls through
+            // to the trashed-aware query below, since an eager load leaves
+            // a soft-deleted target null.
+            if ($model->relationLoaded($relationshipName)) {
+                $loaded = $model->getRelation($relationshipName);
+
+                if ($loaded instanceof Model) {
+                    $related = $loaded;
+                }
+            }
+
+            if ($related === null) {
+                $relation = $model->{$relationshipName}();
+                $relatedClass = get_class($relation->getRelated());
+                $usesSoftDeletes = in_array(SoftDeletes::class, class_uses_recursive($relatedClass), true);
+                if ($usesSoftDeletes) {
+                    // withTrashed() is provided at runtime by SoftDeletingScope via
+                    // __call — method_exists() returns false but the call still
+                    // resolves. Checking whether the related model uses the trait
+                    // is enough.
+                    $related = $relation->withTrashed()->first();
+                } else {
+                    $related = $model->{$relationshipName};
+                }
             }
         }
 

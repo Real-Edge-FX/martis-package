@@ -59,7 +59,7 @@ function posts(softDeletes: boolean): ResourceSchema {
 
 function serve(softDeletes: boolean, trashed: boolean): void {
   apiGetMock.mockImplementation((path: string) => {
-    if (path.endsWith('/schema')) return Promise.resolve({ data: posts(softDeletes) })
+    if (path.split('?')[0].endsWith('/schema')) return Promise.resolve({ data: posts(softDeletes) })
     return Promise.resolve({ data: { id: 1, _title: 'A post', title: 'A post', ...(trashed ? { deleted_at: '2026-01-01' } : {}) } })
   })
 }
@@ -95,7 +95,7 @@ describe('ResourceDetailPage — a route param that traverses stays one path seg
     renderAt(`/resources/posts/${TRAVERSING_ID_ROUTE}`)
 
     await screen.findByRole('heading', { name: 'A post' })
-    const recordFetch = apiGetMock.mock.calls.map(([path]) => path as string).find((path) => !path.endsWith('/schema'))!
+    const recordFetch = apiGetMock.mock.calls.map(([path]) => path as string).find((path) => !path.split('?')[0].endsWith('/schema'))!
     expect(apiSegments(recordFetch)).toEqual(['resources', 'posts', TRAVERSING_ID_SEGMENT])
 
     fireEvent.click(screen.getByRole('button', { name: 'Delete' }))

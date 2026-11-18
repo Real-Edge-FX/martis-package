@@ -74,6 +74,8 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
     <RelationshipTableShell
       title={field.label}
       relatedResource={relatedResource}
+      viaResource={parentResource}
+      viaRelationship={relationship}
       showRelationIcon={field.showRelationIcon !== false}
       showRelationCount={field.showRelationCount !== false}
       collapsable={!!field.collapsable}

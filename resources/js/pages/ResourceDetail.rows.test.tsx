@@ -57,7 +57,7 @@ function schemaWith(extra: Record<string, unknown>): ResourceSchema {
 
 function renderDetail(schema: ResourceSchema) {
   apiGetMock.mockImplementation((path: string) => {
-    if (path === '/api/resources/employees/schema') return Promise.resolve({ data: schema })
+    if (path.split('?')[0] === '/api/resources/employees/schema') return Promise.resolve({ data: schema })
     if (path === '/api/resources/employees/1') {
       return Promise.resolve({ data: { id: 1, _title: 'Ann', name: 'Ann', bio: 'Long', note: 'N', owner: 'Bo' } })
     }

@@ -33,7 +33,7 @@ const card = {
 
 function answer(column: string) {
   apiGetMock.mockImplementation((path: string) => {
-    if (path === '/api/resources/notes/schema') {
+    if (String(path ?? '').split('?')[0] === '/api/resources/notes/schema') {
       return Promise.resolve({ data: { fieldsForDetail: [], singularLabel: 'Note' } })
     }
     return Promise.resolve({

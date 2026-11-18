@@ -62,7 +62,7 @@ beforeEach(() => {
   apiGetMock.mockReset()
   apiPostMock.mockClear()
   apiGetMock.mockImplementation((path: string) => {
-    if (path.endsWith('/schema')) return Promise.resolve({ data: comments })
+    if (path.split('?')[0].endsWith('/schema')) return Promise.resolve({ data: comments })
     return Promise.resolve({ data: { values: {} } })
   })
 })
@@ -176,7 +176,7 @@ describe('ResourceCreatePage — nested create from a crafted link', () => {
       relatedResource: '../users',
     } as unknown as FieldDefinition
     apiGetMock.mockImplementation((path: string) => {
-      if (path.endsWith('/schema')) return Promise.resolve({ data: { ...comments, fieldsForCreate: [field('body', 'Body', 'text'), parentField] } })
+      if (path.split('?')[0].endsWith('/schema')) return Promise.resolve({ data: { ...comments, fieldsForCreate: [field('body', 'Body', 'text'), parentField] } })
       return Promise.resolve({ data: { id: 1, _title: 'Parent' } })
     })
     renderCreate('/resources/comments/create?' + new URLSearchParams({
@@ -186,9 +186,9 @@ describe('ResourceCreatePage — nested create from a crafted link', () => {
     }).toString())
 
     await waitFor(() => {
-      expect(apiGetMock.mock.calls.some(([p]) => !String(p).endsWith('/schema'))).toBe(true)
+      expect(apiGetMock.mock.calls.some(([p]) => !String(p).split('?')[0].endsWith('/schema'))).toBe(true)
     })
-    const lookup = apiGetMock.mock.calls.map(([p]) => String(p)).find((p) => !p.endsWith('/schema'))!
+    const lookup = apiGetMock.mock.calls.map(([p]) => String(p)).find((p) => !p.split('?')[0].endsWith('/schema'))!
     expect(apiSegments(lookup)).toEqual(['resources', '..%252Fusers', '5%3Fx%3D1'])
   })
 })

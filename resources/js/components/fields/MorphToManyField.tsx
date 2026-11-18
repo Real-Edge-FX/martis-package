@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError } from '@/lib/api'
 import { apiPath, withQuery } from '@/lib/apiPath'
+import { useRelatedResourceSchema } from '@/hooks/useRelatedResourceSchema'
 import type { PaginatedResponse, ResourceRecord, ResourceSchema, FieldDefinition } from '@/types'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { FieldDisplay, FieldInput } from '@/components/fields/FieldRenderer'
@@ -219,6 +220,8 @@ function MorphToManyDetailPanel({ field, readOnly = false, formValues }: { field
       <RelationshipTableShell
         title={field.label}
         relatedResource={relatedResource}
+        viaResource={parentResource}
+        viaRelationship={relationship}
         collapsable={collapsable}
         collapsedByDefault={collapsedByDefault}
         queryKey={['morph-to-many', parentResource, parentId, relationship]}
@@ -593,12 +596,10 @@ function AttachModal({
 
   const perPageOptions = [10, 15, 25, 50]
 
-  // Fetch related resource schema for DataTable columns
-  const schemaQuery = useQuery({
-    queryKey: ['schema', relatedResource],
-    queryFn: () => api.get<{ data: ResourceSchema }>(apiPath`/api/resources/${relatedResource}/schema`),
-    enabled: !!relatedResource,
-  })
+  // Fetch related resource schema for DataTable columns. Naming the
+  // relationship lets a headless (`routable(false)`) relation target
+  // answer, as the panel itself does.
+  const schemaQuery = useRelatedResourceSchema<ResourceSchema>(relatedResource, parentResource, relationship)
 
   // The parent form draft (`dependsOn([...])`), sent with the attachable
   // list and the attach, as on a BelongsToMany (see useAttachFormDraft).
@@ -754,6 +755,27 @@ function AttachModal({
             tableClassName="min-w-full"
           >
             <Column selectionMode="multiple" headerStyle={{ width: '3rem' }} />
+            {indexFields.length === 0 && (
+              <Column
+                key="_title"
+                field="_title"
+                header={
+                  <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                    {tMsg('title', 'Title')}
+                  </span>
+                }
+                body={(row: ResourceRecord) => (
+                  <div>
+                    <span className="font-medium">{(row._title as string | undefined) ?? String(row.id ?? '')}</span>
+                    {withSubtitles && row[subtitleAttribute] != null && (
+                      <div className="text-xs mt-0.5" style={{ color: 'var(--martis-text-muted)' }}>
+                        {String(row[subtitleAttribute])}
+                      </div>
+                    )}
+                  </div>
+                )}
+              />
+            )}
             {indexFields.map((f, idx) => (
               <Column
                 key={f.attribute}

@@ -85,7 +85,7 @@ let replicate: () => Promise<unknown>
 beforeEach(() => {
   apiGetMock.mockReset()
   apiGetMock.mockImplementation((path: string) => {
-    if (path === '/api/resources/posts/schema') return Promise.resolve({ data: schema })
+    if (path.split('?')[0] === '/api/resources/posts/schema') return Promise.resolve({ data: schema })
     if (path === '/api/resources/posts/1/replicate') return replicate()
     // The slug availability check.
     return Promise.resolve({ data: { available: true, suggestion: null, reserved: false } })

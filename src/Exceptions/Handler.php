@@ -2,11 +2,13 @@
 
 namespace Martis\Exceptions;
 
+use Illuminate\Auth\Access\AuthorizationException as LaravelAuthorizationException;
 use Illuminate\Contracts\Debug\ExceptionHandler as LaravelExceptionHandler;
 use Illuminate\Foundation\Exceptions\Handler as LaravelHandler;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException as LaravelValidationException;
 use Martis\Http\Resources\JsonErrorResponse;
 use Throwable;
 
@@ -53,6 +55,24 @@ final class Handler
             return JsonErrorResponse::notFound($e->getMessage())->toResponse();
         }
 
+        // Laravel's own typed exceptions, which a consumer hook or a model
+        // event listener throws as readily as Martis' ones. Outside a
+        // catch-all Laravel renders them itself; inside one (the delete and
+        // restore guards) they would otherwise be flattened to a 500.
+        if ($e instanceof LaravelValidationException) {
+            return response()->json([
+                'message' => $e->getMessage(),
+                'errors' => $e->errors(),
+            ], $e->status);
+        }
+
+        if ($e instanceof LaravelAuthorizationException) {
+            return response()->json([
+                'message' => $e->getMessage(),
+                'errors' => [],
+            ], 403);
+        }
+
         if ($e instanceof ThrottleRequestsException) {
             // Localise the default "Too Many Attempts." message and respect
             // the Retry-After header Laravel already set on the exception.
@@ -94,7 +114,9 @@ final class Handler
         return $e instanceof UserFacingException
             || $e instanceof ValidationException
             || $e instanceof AuthorizationException
-            || $e instanceof ResourceNotFoundException;
+            || $e instanceof ResourceNotFoundException
+            || $e instanceof LaravelValidationException
+            || $e instanceof LaravelAuthorizationException;
     }
 
     /**
