@@ -2,6 +2,12 @@
 
 What to do in an app when a 1.x release changes behaviour it may rely on. A patch release changes behaviour only to close a security gap or a bug; each section says what changed, who is affected and what to check.
 
+## Upgrading to v1.39.9
+
+v1.39.9 is a security fix. Nothing has to change in an app whose files under `martis.resources_path` and `martis.tools_path` are all classes.
+
+- **A PHP file under `martis.resources_path` or `martis.tools_path` that does not declare the class its path implies is no longer loaded by discovery.** Such a file (a routes file, a helpers file) used to be `require_once`d at discovery time, so its top-level statements ran outside any route group: a tool's routes file under `app/Martis/Tools/routes/` registered its routes a second time at the application root, with no `web`, no `martis.auth` and no tool gate. If your app relied on discovery for a side effect, a `helpers.php` under `app/Martis/` whose functions were defined that way, require it from a service provider or list it in your `composer.json` `autoload.files` instead. Run `php artisan route:list` and check that no route of a tool answers outside `martis/api/tools/{uriKey}` and `{martis.path}/api/tools/{uriKey}`; if one did before, it is gone now, and anything that called it must use the prefixed path. (v2.24.0 carries the same fix.)
+
 ## Upgrading to v1.39.8
 
 v1.39.8 is a security fix. Nothing has to change in an app whose Resource policies return booleans.

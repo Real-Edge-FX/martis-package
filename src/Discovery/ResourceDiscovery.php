@@ -22,6 +22,8 @@ use Symfony\Component\Finder\Finder;
  */
 class ResourceDiscovery
 {
+    use Concerns\LoadsDeclaredClasses;
+
     /**
      * Absolute path to the directory containing resource classes.
      */
@@ -69,10 +71,11 @@ class ResourceDiscovery
                 continue;
             }
 
-            // Require the file only when the class is not yet loaded (e.g. in
-            // environments without Composer's classmap autoloader pre-warming).
-            if (! class_exists($class)) {
-                require_once $file->getRealPath();
+            // Load the file only when it declares that class (e.g. in
+            // environments without Composer's classmap autoloader
+            // pre-warming). A file that is not a class is never executed.
+            if (! $this->loadDeclaredClass($file->getRealPath(), $class)) {
+                continue;
             }
 
             if (! class_exists($class)) {

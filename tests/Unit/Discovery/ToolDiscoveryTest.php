@@ -207,3 +207,114 @@ class OnlyTool extends Tool {
         removeTempToolDir($dir);
     }
 });
+
+// ---------------------------------------------------------------------------
+// Files that are not classes must never be executed by discovery
+//
+// Discovery walks every `*.php` under the root. A routes file or a helper file
+// sitting there used to be `require_once`d (and, under a PSR-4 autoloader,
+// pulled in by `class_exists()` too), running its top-level code outside any
+// route group, middleware or gate.
+// ---------------------------------------------------------------------------
+
+/**
+ * Register a PSR-4 autoloader for the temp dir, the way Composer maps
+ * `App\Martis\...` onto `app/Martis/...`. Returns the callable to unregister.
+ */
+function toolDiscoveryRegisterPsr4(string $namespace, string $dir): callable
+{
+    $loader = function (string $class) use ($namespace, $dir): void {
+        $prefix = $namespace.'\\';
+
+        if (! str_starts_with($class, $prefix)) {
+            return;
+        }
+
+        $path = $dir.'/'.str_replace('\\', '/', substr($class, strlen($prefix))).'.php';
+
+        if (is_file($path)) {
+            require_once $path;
+        }
+    };
+
+    spl_autoload_register($loader);
+
+    return $loader;
+}
+
+function toolDiscoverySideEffect(string $marker): string
+{
+    return "<?php file_put_contents('{$marker}', 'executed;', FILE_APPEND);\n";
+}
+
+it('does not execute a non-class file under routes/ or at the root, with or without an autoloader', function (bool $withAutoloader) {
+    $namespace = 'TestNs\\ToolNonClass\\N'.uniqid();
+    $marker = sys_get_temp_dir().'/martis_side_effect_'.uniqid();
+
+    $dir = createTempToolDir([
+        'StatusTool.php' => "<?php
+namespace {$namespace};
+use Martis\\Tools\\Tool;
+class StatusTool extends Tool {
+    public function __construct() {
+        parent::__construct(name: 'StatusTool', uriKey: 'status');
+    }
+}
+",
+        // `routes\web` is a legal class name: an autoloader can resolve it.
+        'routes/web.php' => toolDiscoverySideEffect($marker),
+        'helpers.php' => toolDiscoverySideEffect($marker),
+    ]);
+
+    $loader = $withAutoloader ? toolDiscoveryRegisterPsr4($namespace, $dir) : null;
+
+    try {
+        $found = (new ToolDiscovery($dir, $namespace))->discover();
+
+        expect(file_exists($marker))->toBeFalse();
+        expect($found)->toBe(["{$namespace}\\StatusTool"]);
+    } finally {
+        if ($loader !== null) {
+            spl_autoload_unregister($loader);
+        }
+        if (file_exists($marker)) {
+            unlink($marker);
+        }
+        removeTempToolDir($dir);
+    }
+})->with([
+    'without an autoloader' => [false],
+    'with a PSR-4 autoloader' => [true],
+]);
+
+it('does not treat a file as a class when it declares a different class name', function () {
+    $namespace = 'TestNs\\ToolNonClass\\Mismatch\\N'.uniqid();
+    $marker = sys_get_temp_dir().'/martis_side_effect_'.uniqid();
+
+    $dir = createTempToolDir([
+        // The file name says StatusTool, the body declares OtherTool.
+        'StatusTool.php' => ("<?php
+namespace {$namespace};
+use Martis\\Tools\\Tool;
+class OtherTool extends Tool {
+    public function __construct() {
+        parent::__construct(name: 'OtherTool', uriKey: 'other');
+    }
+}
+")."\nfile_put_contents('{$marker}', 'executed;', FILE_APPEND);\n",
+        // The word `class` and the name appear, but only in a comment and `::class`.
+        'OtherTool.php' => toolDiscoverySideEffect($marker)."// class OtherTool\n\$x = OtherTool::class;\n",
+    ]);
+
+    try {
+        $found = (new ToolDiscovery($dir, $namespace))->discover();
+
+        expect(file_exists($marker))->toBeFalse();
+        expect($found)->toBe([]);
+    } finally {
+        if (file_exists($marker)) {
+            unlink($marker);
+        }
+        removeTempToolDir($dir);
+    }
+});
