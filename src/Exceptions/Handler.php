@@ -2,11 +2,13 @@
 
 namespace Martis\Exceptions;
 
+use Illuminate\Auth\Access\AuthorizationException as LaravelAuthorizationException;
 use Illuminate\Contracts\Debug\ExceptionHandler as LaravelExceptionHandler;
 use Illuminate\Foundation\Exceptions\Handler as LaravelHandler;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException as LaravelValidationException;
 use Martis\Http\Resources\JsonErrorResponse;
 use Throwable;
 
@@ -79,6 +81,38 @@ final class Handler
     }
 
     /**
+     * The answer a catch-all of the Martis API gives a user-facing
+     * throwable, or null when it has none.
+     *
+     * This is `render()` plus Laravel's own typed exceptions, which a
+     * consumer hook or a model event listener throws as readily as Martis'
+     * ones. Outside a catch-all Laravel renders those itself (a web form
+     * redirects back with its errors, a host API answers in its own
+     * shape), so they are deliberately **not** in `render()`, which a host
+     * application is invited to call from its own exception handler. Only
+     * the guards that would otherwise flatten them to a 500 — the delete
+     * and restore endpoints — call this.
+     */
+    public static function renderUserFacing(Request $request, Throwable $e): ?JsonResponse
+    {
+        if ($e instanceof LaravelValidationException) {
+            // Laravel keys its errors by field; the panel reads the list of
+            // `{field, message, code}` every other Martis 422 answers, so
+            // the map is converted rather than passed through.
+            return JsonErrorResponse::validation($e->errors(), $e->getMessage())->toResponse();
+        }
+
+        if ($e instanceof LaravelAuthorizationException) {
+            return response()->json([
+                'message' => $e->getMessage(),
+                'errors' => [],
+            ], 403);
+        }
+
+        return self::render($request, $e);
+    }
+
+    /**
      * Whether an exception carries a message written for the user, so a
      * catch-all of the API may return it to the client as it is.
      *
@@ -94,7 +128,9 @@ final class Handler
         return $e instanceof UserFacingException
             || $e instanceof ValidationException
             || $e instanceof AuthorizationException
-            || $e instanceof ResourceNotFoundException;
+            || $e instanceof ResourceNotFoundException
+            || $e instanceof LaravelValidationException
+            || $e instanceof LaravelAuthorizationException;
     }
 
     /**

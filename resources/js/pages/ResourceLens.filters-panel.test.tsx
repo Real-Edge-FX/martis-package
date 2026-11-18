@@ -61,7 +61,7 @@ const tickets = {
 beforeEach(() => {
   apiGetMock.mockReset()
   apiGetMock.mockImplementation((path: string) => {
-    if (path === '/api/resources/tickets/schema') return Promise.resolve({ data: tickets })
+    if (path.split('?')[0] === '/api/resources/tickets/schema') return Promise.resolve({ data: tickets })
     if (path.startsWith('/api/resources/tickets/lenses/open?')) {
       return Promise.resolve({
         data: [{ id: 1, title: 'Refund' }],

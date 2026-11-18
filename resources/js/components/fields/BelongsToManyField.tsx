@@ -4,6 +4,7 @@ import { createPortal } from 'react-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api, ApiError } from '@/lib/api'
 import { apiPath, withQuery } from '@/lib/apiPath'
+import { useRelatedResourceSchema } from '@/hooks/useRelatedResourceSchema'
 import type { PaginatedResponse, ResourceRecord, ResourceSchema, FieldDefinition } from '@/types'
 import type { FieldDisplayProps, FieldInputProps } from './types'
 import { FieldDisplay, FieldInput } from '@/components/fields/FieldRenderer'
@@ -14,7 +15,6 @@ import { RelationshipTableShell } from '@/components/fields/relation/Relationshi
 import { PivotActionModal } from '@/components/fields/relation/PivotActionModal'
 import { useRelationParent } from './NestedParentContext'
 import { useAttachFormDraft, withFormDraft } from './relation/useAttachFormDraft'
-import { recordHref } from '@/lib/recordHref'
 import { useModalHistoryLock } from '@/lib/historyLock'
 import { lockImmutableFields } from '@/lib/lockImmutableFields'
 import { useHiddenAttributes, withoutHiddenFields } from '@/lib/hiddenFields'
@@ -222,13 +222,14 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
       <RelationshipTableShell
         title={field.label}
         relatedResource={relatedResource}
+        viaResource={parentResource}
+        viaRelationship={relationship}
         collapsable={collapsable}
         collapsedByDefault={collapsedByDefault}
         queryKey={['belongs-to-many', parentResource, parentId, relationship]}
         fetchUrl={(params) =>
           withQuery(apiPath`/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}`, params.toString())
         }
-        viewUrl={(id) => recordHref(relatedResource, id)}
         pivotFields={pivotFields}
         selectable={hasPivotActions}
         selectedRows={selectedRows}
@@ -578,6 +579,7 @@ function AttachModal({
 }) {
   const { t: tAct } = useTranslation('actions')
   const { t: tMsg } = useTranslation('messages')
+  const { t: tRes } = useTranslation('resources')
 
   useModalHistoryLock(true)
 
@@ -598,12 +600,10 @@ function AttachModal({
 
   const perPageOptions = [10, 15, 25, 50]
 
-  // Fetch related resource schema for DataTable columns
-  const schemaQuery = useQuery({
-    queryKey: ['schema', relatedResource],
-    queryFn: ({ signal }) => api.get<{ data: ResourceSchema }>(apiPath`/api/resources/${relatedResource}/schema`, signal),
-    enabled: !!relatedResource,
-  })
+  // Fetch related resource schema for DataTable columns. Naming the
+  // relationship lets a headless (`routable(false)`) relation target
+  // answer, as the panel itself does.
+  const schemaQuery = useRelatedResourceSchema<ResourceSchema>(relatedResource, parentResource, relationship)
 
   // The parent form draft (`dependsOn([...])`), sent with the attachable
   // list and the attach (see useAttachFormDraft).
@@ -764,6 +764,27 @@ function AttachModal({
             tableClassName="min-w-full"
           >
             <Column selectionMode="multiple" headerStyle={{ width: '3rem' }} />
+            {!schemaQuery.isPending && indexFields.length === 0 && (
+              <Column
+                key="_title"
+                field="_title"
+                header={
+                  <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                    {tRes('record_title', 'Title')}
+                  </span>
+                }
+                body={(row: ResourceRecord) => (
+                  <div>
+                    <span className="font-medium">{(row._title as string | undefined) ?? String(row.id ?? '')}</span>
+                    {withSubtitles && row[subtitleAttribute] != null && (
+                      <div className="text-xs mt-0.5" style={{ color: 'var(--martis-text-muted)' }}>
+                        {String(row[subtitleAttribute])}
+                      </div>
+                    )}
+                  </div>
+                )}
+              />
+            )}
             {indexFields.map((f, idx) => (
               <Column
                 key={f.attribute}

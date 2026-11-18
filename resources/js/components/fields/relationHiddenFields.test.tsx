@@ -44,7 +44,7 @@ const employeeFields = [field('name', 'Name'), field('active', 'Active', 'boolea
 
 function mockApi(records: Array<Record<string, unknown>>) {
   apiGetMock.mockImplementation((path: string) => {
-    if (path === '/api/resources/employees/schema') {
+    if (path.split('?')[0] === '/api/resources/employees/schema') {
       return Promise.resolve({ data: { fieldsForIndex: employeeFields, fieldsForDetail: employeeFields, singularLabel: 'Employee', softDeletes: false } })
     }
     if (path.includes('/has-one/') || path.includes('/morph-one/')) return Promise.resolve({ data: records[0] })

@@ -60,7 +60,7 @@ const titleField = {
 
 function answerWith(actions: ActionMeta[], rows: Array<Record<string, unknown>>) {
   apiGetMock.mockImplementation((path: string) => {
-    if (path === '/api/resources/tasks/schema') {
+    if (path.split('?')[0] === '/api/resources/tasks/schema') {
       return Promise.resolve({ data: { fieldsForIndex: [titleField], fieldsForDetail: [titleField], singularLabel: 'Task', softDeletes: false, actions } })
     }
     if (path.includes('/actions')) return Promise.resolve({ data: { actions: [] } })

@@ -30,8 +30,10 @@ use Martis\Enums\SortDirection;
 use Martis\Enums\TableLayout;
 use Martis\Enums\TableSize;
 use Martis\Events\AfterDelete;
+use Martis\Events\AfterRestore;
 use Martis\Events\AfterSave;
 use Martis\Events\BeforeDelete;
+use Martis\Events\BeforeRestore;
 use Martis\Events\BeforeSave;
 use Martis\Fields\Field;
 use Martis\Fields\MorphMany;
@@ -141,6 +143,25 @@ abstract class Resource implements ResourceContract
     public static function titleAttribute(): string
     {
         return 'id';
+    }
+
+    /**
+     * Columns a relation picker searches over this resource, independently
+     * of the title.
+     *
+     * A relation picker (`BelongsTo`, `MorphTo`, and the pivot-field and
+     * action pickers that share the relatable endpoint) searches the
+     * resource's `searchable()` fields. When it declares none, it falls
+     * back to the title attribute, which only works when the title is a
+     * real column: a resource whose title comes from an accessor or from
+     * an overridden `title()` has nothing to search. Declare the columns
+     * here and the picker filters by them instead.
+     *
+     * @return list<string>
+     */
+    public static function relatableSearchColumns(): array
+    {
+        return [];
     }
 
     /**
@@ -1691,6 +1712,18 @@ abstract class Resource implements ResourceContract
     public function afterDelete(Model $model, Request $request): void
     {
         AfterDelete::dispatch(static::class, $model, $request);
+    }
+
+    /** {@inheritdoc} */
+    public function beforeRestore(Model $model, Request $request): void
+    {
+        BeforeRestore::dispatch(static::class, $model, $request);
+    }
+
+    /** {@inheritdoc} */
+    public function afterRestore(Model $model, Request $request): void
+    {
+        AfterRestore::dispatch(static::class, $model, $request);
     }
 
     // -------------------------------------------------------------------------

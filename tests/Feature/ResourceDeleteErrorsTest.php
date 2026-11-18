@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
@@ -12,6 +13,7 @@ use Martis\Fields\Text;
 use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Resource;
 use Martis\ResourceRegistry;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 /*
  * A delete that fails inside a hook, an observer or a storage driver does
@@ -158,4 +160,27 @@ it('still deletes the record when nothing fails', function () {
     $this->deleteJson("/martis/api/resources/delete-errors-items/{$this->record->id}")->assertOk();
 
     expect(DeleteErrorsModel::find($this->record->id))->toBeNull();
+});
+
+it('lets an abort() in beforeDelete() keep its status instead of flattening it to a 500', function () {
+    config(['app.debug' => false]);
+    DeleteErrorsResource::$throws = new HttpException(403, 'Custom reason');
+
+    // The same exception `abort(403, 'Custom reason')` throws.
+    $this->deleteJson("/martis/api/resources/delete-errors-items/{$this->record->id}")
+        ->assertStatus(403)
+        ->assertJsonPath('message', 'Custom reason');
+
+    expect(DeleteErrorsModel::find($this->record->id))->not->toBeNull();
+});
+
+it('lets an HttpResponseException from beforeDelete() answer as the caller built it', function () {
+    config(['app.debug' => false]);
+    DeleteErrorsResource::$throws = new HttpResponseException(response()->json(['custom' => 'payload'], 409));
+
+    $this->deleteJson("/martis/api/resources/delete-errors-items/{$this->record->id}")
+        ->assertStatus(409)
+        ->assertExactJson(['custom' => 'payload']);
+
+    expect(DeleteErrorsModel::find($this->record->id))->not->toBeNull();
 });

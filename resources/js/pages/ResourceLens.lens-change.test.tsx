@@ -74,7 +74,7 @@ beforeEach(() => {
   apiDeleteMock.mockReset()
   apiDeleteMock.mockReturnValue(new Promise(() => {}))
   apiGetMock.mockImplementation((path: string) => {
-    if (path === '/api/resources/posts/schema') return Promise.resolve({ data: posts })
+    if (path.split('?')[0] === '/api/resources/posts/schema') return Promise.resolve({ data: posts })
     const lensPath = /^\/api\/resources\/posts\/lenses\/([^/?]+)\?/.exec(path)
     if (lensPath) {
       const rows = ROWS[lensPath[1]]

@@ -13,13 +13,14 @@ import {
 
 import { api } from '@/lib/api'
 import { apiPath } from '@/lib/apiPath'
+import { useRelatedResourceSchema } from '@/hooks/useRelatedResourceSchema'
 import type { PaginatedResponse, ResourceRecord, ResourceSchema, FieldDefinition } from '@/types'
 import { FieldDisplay } from '@/components/fields/FieldRenderer'
 import { DeleteModal } from '@/components/DeleteModal'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { Pagination } from '@/components/Pagination'
 import { QueryErrorState } from '@/components/QueryErrorState'
-import { recordHref } from '@/lib/recordHref'
+import { recordHref, hasRecordPage } from '@/lib/recordHref'
 import { isHiddenOn } from '@/lib/hiddenFields'
 import { filterInlineActions } from '@/lib/actionVisibility'
 import { InlineRowActions } from '@/components/Table/Table'
@@ -100,6 +101,12 @@ export interface RelationshipTableShellProps {
    *  relationship: the run sends it (`viaResource`, `viaResourceId`,
    *  `viaRelationship`) and reaches only a record it holds. */
   rowActions?: ActionVia
+
+  /** The relationship this panel renders, named so the related resource's
+   *  schema can be read even when it is headless (`routable(false)`).
+   *  See `useRelatedResourceSchema`. */
+  viaResource?: string
+  viaRelationship?: string
 }
 
 export function RelationshipTableShell(props: RelationshipTableShellProps) {
@@ -118,6 +125,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
     defaultTrashed,
     toolbarExtras, rowActionsExtras,
     rowActions,
+    viaResource, viaRelationship,
   } = props
 
   const { t: tAct } = useTranslation('actions')
@@ -139,11 +147,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
   const [activeAction, setActiveAction] = useState<{ action: ActionMeta; id: string | number } | null>(null)
   const [actionDrawer, setActionDrawer] = useState<{ type: 'create' | 'detail' | 'update'; resource: string; recordId?: string | number } | null>(null)
 
-  const schemaQuery = useQuery({
-    queryKey: ['schema', relatedResource],
-    queryFn: () => api.get<{ data: ResourceSchema }>(apiPath`/api/resources/${relatedResource}/schema`),
-    enabled: !!relatedResource,
-  })
+  const schemaQuery = useRelatedResourceSchema<ResourceSchema>(relatedResource, viaResource, viaRelationship)
 
   const recordsQuery = useQuery({
     queryKey: [...queryKey, { search, page, perPage, sort: serializeSort(sort), trashed }],
@@ -210,21 +214,40 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
   const totalCount = pagination?.total ?? records.length
 
   const indexFields: FieldDefinition[] = schema?.fieldsForIndex ?? []
+  // No index fields to render (a schema still loading, or a related
+  // resource whose index fields are all hidden from this user): the record
+  // title keeps every row readable instead of a blank line of actions.
+  // The fallback waits for the schema query to settle: while it is pending
+  // the index fields are not known to be missing, and a routable panel would
+  // flash a "Title" column before its real columns arrive.
+  const showTitleColumn = !schemaQuery.isPending && indexFields.length === 0 && records.length > 0
   const inlineActions = rowActions
     ? filterInlineActions(((schema as unknown as { actions?: ActionMeta[] })?.actions ?? []))
     : []
 
   const softDeletes = !!(schema as unknown as { softDeletes?: boolean })?.softDeletes
+  // A headless related resource (`routable(false)`) has no page surface,
+  // and its restore endpoint answers 404 with it, so the panel does not
+  // offer a trash control that cannot answer. A schema that does not say
+  // (an older server) counts as routable, as it always did.
+  const relatedRoutable = (schema as unknown as { routable?: boolean })?.routable !== false
 
-  const showView = !hideViewAction
-  const showEdit = canUpdate && !hideEditAction && !!editUrl
+  // A headless resource has no page surface: a link to its detail page lands
+  // on a 404, unless it declares `recordUrl()` (then `recordHref` answers
+  // that template). A caller's own `viewUrl` names its destination, so it is
+  // taken as reachable. Edit and create destinations are page routes
+  // (`/resources/{resource}/create`, `.../edit`) that no `recordUrl()` covers.
+  const recordPage = !!viewUrl || hasRecordPage(relatedResource, relatedRoutable)
+
+  const showView = !hideViewAction && recordPage
+  const showEdit = canUpdate && !hideEditAction && !!editUrl && relatedRoutable
   const showDelete = canDelete && !hideDeleteAction && !!deleteUrl
-  const showRestore = softDeletes && !hideRestoreAction
-  const showForceDelete = softDeletes && !hideForceDeleteAction
+  const showRestore = softDeletes && relatedRoutable && !hideRestoreAction
+  const showForceDelete = softDeletes && relatedRoutable && !hideForceDeleteAction
   const hasActions = showView || showEdit || showDelete || showRestore || showForceDelete || !!rowActionsExtras || inlineActions.length > 0
 
   const showSearch = searchable && !hideSearch
-  const showCreate = canCreate && !hideCreateButton && !!createUrl
+  const showCreate = canCreate && !hideCreateButton && !!createUrl && relatedRoutable
   const showPerPage = !hidePerPageSelector && perPageOptions?.length > 0
   const showSoftDeleteToggle = softDeletes && !hideSoftDeleteToggle
 
@@ -406,6 +429,33 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                   }
                 />
               )}
+              {showTitleColumn && (
+                <Column
+                  key="_title"
+                  field="_title"
+                  header={
+                    <span className="text-xs font-medium uppercase tracking-wider text-gray-500">
+                      {tRes('record_title', 'Title')}
+                    </span>
+                  }
+                  body={(row: ResourceRecord) => {
+                    const label = (row._title as string | undefined) ?? String(row.id ?? '')
+
+                    return recordPage && row._authorization?.authorizedToView !== false ? (
+                      <Link
+                        to={viewUrl ? viewUrl(row.id as string | number) : recordHref(relatedResource, row.id)}
+                        className="font-medium no-underline"
+                        style={{ color: 'var(--martis-accent)' }}
+                      >
+                        {label}
+                      </Link>
+                    ) : (
+                      <span className="font-medium">{label}</span>
+                    )
+                  }}
+                  sortable={false}
+                />
+              )}
               {indexFields.map((f) => (
                 <Column
                   key={f.attribute}
@@ -422,7 +472,7 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
                   body={(row: ResourceRecord) => (
                     // A field the related record hides (`_hidden`) leaves its cell empty;
                     // the id links to the record only when its policy lets the user view it.
-                    isHiddenOn(row, f.attribute) ? null : f.attribute === 'id' && row._authorization?.authorizedToView !== false ? (
+                    isHiddenOn(row, f.attribute) ? null : f.attribute === 'id' && recordPage && row._authorization?.authorizedToView !== false ? (
                       <Link
                         to={viewUrl ? viewUrl(row.id as string | number) : recordHref(relatedResource, row.id)}
                         className="font-medium no-underline"
@@ -641,6 +691,11 @@ export function RelationshipTableShell(props: RelationshipTableShellProps) {
             setActionDrawer(null)
           }}
           onSwitchTo={(next) => setActionDrawer(next)}
+          // The relationship names only its own related resource; a drawer
+          // an action opens over another resource reads that one's schema
+          // as a page would.
+          viaResource={actionDrawer.resource === relatedResource ? viaResource : undefined}
+          viaRelationship={actionDrawer.resource === relatedResource ? viaRelationship : undefined}
         />
       )}
 

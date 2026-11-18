@@ -453,6 +453,19 @@ public function beforeDelete(Model $model, Request $request): void
     }
     parent::beforeDelete($model, $request); // fires BeforeDelete event
 }
+
+// Since v2.24.0, the same pair around a restore. They run inside the
+// restore's database guard, so a constraint the restored row violates is
+// already answered as a 422 on its field without a hook.
+public function beforeRestore(Model $model, Request $request): void
+{
+    parent::beforeRestore($model, $request); // fires BeforeRestore event
+}
+
+public function afterRestore(Model $model, Request $request): void
+{
+    parent::afterRestore($model, $request); // fires AfterRestore event
+}
 ```
 
 ### Event Listeners

@@ -125,8 +125,8 @@ beforeEach(() => {
   apiGetMock.mockReset()
   apiPutMock.mockReset()
   apiGetMock.mockImplementation((path: string) => {
-    if (path === '/api/resources/posts/schema') return Promise.resolve({ data: postsSchema })
-    if (path === '/api/resources/notes/schema') return Promise.resolve({ data: notesSchema })
+    if (path.split('?')[0] === '/api/resources/posts/schema') return Promise.resolve({ data: postsSchema })
+    if (path.split('?')[0] === '/api/resources/notes/schema') return Promise.resolve({ data: notesSchema })
     if (path === '/api/resources/notes/1?context=update') return Promise.resolve({ data: { id: 1, title: 'A note', topic: null } })
     const recordPath = /^\/api\/resources\/posts\/([^/?]+)\?context=update$/.exec(path)
     if (recordPath) return Promise.resolve({ data: { ...RECORDS[recordPath[1]] } as ResourceRecord })

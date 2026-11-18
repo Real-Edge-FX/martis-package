@@ -414,6 +414,23 @@ public static function titleAttribute(): string
 }
 ```
 
+### relatableSearchColumns()
+
+**Since v2.24.0.** The columns a relation picker searches over this resource, independently of the title.
+
+A relation picker — the `BelongsTo` and `MorphTo` dropdowns, and the pivot-field and action pickers that run through the same relatable endpoint — filters by the resource's [`searchable()`](fields.md) fields. (The many-to-many **attach modal** is not one: it lists records through its own endpoint, which searches with the global-search pipeline and does not read this declaration.) When a resource declares none, the picker falls back to its title attribute, which only works when the title is a real column. A resource whose title comes from an accessor, or from an overridden `title()` (title attribute left at `id`), has no column to search: before v2.24.0 that was a SQL error in the first case and a silently unfiltered page in the second. The fallback now skips a title attribute that is not a column, and logs that the term could not be honoured.
+
+Declare the columns here and the picker filters by them instead:
+
+```php
+public static function relatableSearchColumns(): array
+{
+    return ['first_name', 'last_name', 'email'];
+}
+```
+
+The declaration is only read when the resource has no searchable field; a searchable field always wins. The columns are matched case-insensitively (`ilike` on PostgreSQL), as the global search is.
+
 ### label() / singularLabel()
 
 Override the resource name shown in the UI. By default, Martis derives labels from the class name.
@@ -503,8 +520,9 @@ public static function routable(): bool
 When `routable()` returns `false`:
 
 - The index, show, store, update, destroy, restore, schema, and replicate-fields endpoints all return 404 — the resource has no human-facing page surface.
+  **Since v2.24.0** the schema endpoint has one relation-scoped exception: `GET /api/resources/{resource}/schema?viaResource={parent}&viaRelationship={relationship}` answers for a headless resource when the named parent is registered, the user passes the parent's `viewAny`, and the parent's **detail** page declares a relationship field with that name pointing at this resource. Without the pair the endpoint still answers 404, so the human surface stays removed. The resource's own `authorizedToViewAny()` gates the payload either way. This is what lets a relationship panel render the related resource's index columns instead of a row of actions with no data; before v2.24.0 every `BelongsToMany` (or has-many) panel over a headless target showed only an `ACTIONS` header.
 - The resource is excluded from the sidebar navigation, badge counts, global search, and the command palette (in addition to whatever `displayInNavigation()` already controls).
-- The resource **remains fully usable as a relation target and data source**: the relatable endpoint (`BelongsTo`/`BelongsToMany`/etc. option lists), the Slug field's slug-check endpoint, `dependsOn` field sync, inline-create, and peek all keep working, still gated by the resource's own `authorizedTo*` methods.
+- The resource **remains fully usable as a relation target and data source**: the relatable endpoint (`BelongsTo`/`BelongsToMany`/etc. option lists), the relationship panels that list its records (with their columns, since v2.24.0), the Slug field's slug-check endpoint, `dependsOn` field sync, inline-create, and peek all keep working, still gated by the resource's own `authorizedTo*` methods.
 
 Use this for the "a Tool owns the domain; the Resource is a headless data source" pattern: a custom Tool provides the human-facing UI and workflow for a model, while the underlying Resource definition is kept around purely so other resources can relate to it, validate slugs against it, or inline-create records of it, without exposing a redundant (and potentially confusing) standalone CRUD page for it.
 
@@ -1142,6 +1160,38 @@ public function afterDelete(Model $model, Request $request): void
 }
 ```
 
+### beforeRestore()
+
+**Since v2.24.0.** Called before a soft-deleted record is restored, inside the same database transaction as the restore and `afterRestore()`. Throw to refuse the restore, with the same exception rules as [`beforeDelete()`](#beforedelete): `UserFacingException`, the typed `ValidationException`, `AuthorizationException` and `ResourceNotFoundException` keep their message and status (Laravel's own `ValidationException` and `AuthorizationException` too), `abort()` passes through to Laravel, and anything else answers 500 with `martis::messages.error_restore` and goes to the log. Because the three run in one transaction, a throw from either hook leaves the row trashed.
+
+```php
+use Martis\Exceptions\ValidationException;
+
+public function beforeRestore(Model $model, Request $request): void
+{
+    if (Channel::where('kind', $model->kind)->exists()) {
+        throw ValidationException::fromFieldErrors(['kind' => ['Another live channel holds this kind.']]);
+    }
+
+    parent::beforeRestore($model, $request); // Dispatches BeforeRestore event
+}
+```
+
+A restore that a **database** constraint refuses needs no hook: the endpoint answers 422 with the colliding field, as a create or an update does. That is the usual case for a partial unique index on `deleted_at IS NULL`, which the restored row re-enters.
+
+### afterRestore()
+
+**Since v2.24.0.** Called after a successful restore, still inside its transaction: a throw here rolls the restore back and answers an error, it does not leave the record half-restored. A `restoring` model listener that returns `false` cancels the restore without throwing; the endpoint then answers 422 and `afterRestore()` does not run.
+
+```php
+public function afterRestore(Model $model, Request $request): void
+{
+    AuditLog::record('restored', static::class, $model->id);
+
+    parent::afterRestore($model, $request); // Dispatches AfterRestore event
+}
+```
+
 ## Events
 
 When hooks call `parent::hookName()`, Laravel events are dispatched automatically. Use event listeners for cross-cutting concerns:
@@ -1164,6 +1214,8 @@ Event::listen(AfterSave::class, function (AfterSave $event) {
 | `AfterSave` | After `$model->save()` | `resourceClass`, `model`, `request`, `creating` |
 | `BeforeDelete` | Before `$model->delete()` | `resourceClass`, `model`, `request` |
 | `AfterDelete` | After `$model->delete()` | `resourceClass`, `model`, `request` |
+| `BeforeRestore` | Before `$model->restore()` (v2.24.0) | `resourceClass`, `model`, `request` |
+| `AfterRestore` | After `$model->restore()` (v2.24.0) | `resourceClass`, `model`, `request` |
 
 ## Custom Messages
 

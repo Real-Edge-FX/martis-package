@@ -51,7 +51,7 @@ function schemaOf(fields: FieldDefinition[]) {
 
 function renderCreate(fields: FieldDefinition[], search = '', extraGet?: (path: string) => unknown) {
   apiGetMock.mockImplementation((path: string) => {
-    if (path === '/api/resources/posts/schema') return Promise.resolve({ data: schemaOf(fields) })
+    if (path.split('?')[0] === '/api/resources/posts/schema') return Promise.resolve({ data: schemaOf(fields) })
     const extra = extraGet?.(path)
     return extra ?? Promise.resolve({ data: [] })
   })

@@ -45,7 +45,7 @@ const posts = {
 beforeEach(() => {
   apiGetMock.mockReset()
   apiGetMock.mockImplementation((path: string) => {
-    if (path === '/api/resources/posts/schema') return Promise.resolve({ data: posts })
+    if (path.split('?')[0] === '/api/resources/posts/schema') return Promise.resolve({ data: posts })
     if (path.startsWith('/api/resources/posts/lenses/popular?')) {
       return Promise.resolve({
         data: [{ id: 5, title: 'Hello world', author: 'Ann' }],

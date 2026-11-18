@@ -64,7 +64,7 @@ beforeEach(() => {
   apiDeleteMock.mockReset()
   apiDeleteMock.mockReturnValue(new Promise(() => {}))
   apiGetMock.mockImplementation((path: string) => {
-    if (path === '/api/resources/posts/schema') return Promise.resolve({ data: posts })
+    if (path.split('?')[0] === '/api/resources/posts/schema') return Promise.resolve({ data: posts })
     const recordPath = /^\/api\/resources\/posts\/([^/?]+)$/.exec(path)
     if (recordPath) return Promise.resolve({ data: RECORDS[recordPath[1]] })
     return Promise.resolve({ data: [] })

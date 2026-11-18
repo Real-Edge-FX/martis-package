@@ -64,7 +64,7 @@ beforeEach(() => {
   apiGetMock.mockReset()
   apiPutMock.mockReset()
   apiGetMock.mockImplementation((path: string) => {
-    if (path.endsWith('/schema')) return Promise.resolve({ data: notes })
+    if (path.split('?')[0].endsWith('/schema')) return Promise.resolve({ data: notes })
     return Promise.resolve({
       data: {
         id: 1,

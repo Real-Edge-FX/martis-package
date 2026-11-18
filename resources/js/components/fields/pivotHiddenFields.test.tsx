@@ -67,7 +67,7 @@ describe('pivot values — the pivot fields a pivot row hides', () => {
 
   it('leaves the cell of a pivot field a pivot row hides empty', async () => {
     vi.mocked(api.get).mockImplementation((path: string) => {
-      if (path === '/api/resources/people/schema') {
+      if (path.split('?')[0] === '/api/resources/people/schema') {
         return Promise.resolve({ data: { fieldsForIndex: [field('name', 'Name')], softDeletes: false } })
       }
       return Promise.resolve({

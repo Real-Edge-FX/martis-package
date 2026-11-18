@@ -76,7 +76,7 @@ function answer(options: { trashed?: boolean; softDeletes?: boolean; empty?: boo
   vi.mocked(api.get).mockImplementation(((url: string) => {
     const page = { current_page: 1, from: 1, last_page: 1, per_page: 10, to: 1, total: 1 }
     const links = { first: null, last: null, prev: null, next: null }
-    if (url.endsWith('/schema')) {
+    if (url.split('?')[0].endsWith('/schema')) {
       return Promise.resolve({
         data: { fieldsForIndex: [], fieldsForDetail: [], singularLabel: 'Record', softDeletes: options.softDeletes === true },
       })

@@ -60,7 +60,7 @@ beforeEach(() => {
   apiPostMock.mockClear()
   apiUploadMock.mockClear()
   apiGetMock.mockImplementation((path: string) => {
-    if (path === '/api/resources/attachments/schema') return Promise.resolve({ data: attachments })
+    if (path.split('?')[0] === '/api/resources/attachments/schema') return Promise.resolve({ data: attachments })
     return Promise.resolve({ data: [] })
   })
 })

@@ -50,7 +50,7 @@ export function relationField(
 export function answerRelationRequests(): void {
   vi.mocked(api.get).mockReset()
   vi.mocked(api.get).mockImplementation(((url: string) => {
-    if (url.endsWith('/schema')) {
+    if (url.split('?')[0].endsWith('/schema')) {
       return Promise.resolve({
         data: { fieldsForIndex: [], fieldsForDetail: [], singularLabel: 'Record', softDeletes: false },
       })

@@ -320,6 +320,11 @@ Route::post('/upload', [FinanceImportsController::class, 'upload']);
 Route::get('/status/{job}', [FinanceImportsController::class, 'status']);
 ```
 
+Two things to know about the file:
+
+- **A routes file may live under the tools path.** Until v2.23.0, discovery `require`d every `*.php` under `martis.tools_path`, a routes file included: its `Route::*` calls ran a second time at discovery time, outside any group, so the same endpoints also answered at the application root with no `web`, no `martis.auth` and no tool gate (`PUT /upload` on the public site). **Since v2.24.0** discovery loads a file only when it declares the class its path implies, so a `routes/` file is never executed by discovery, and the same holds for `martis.resources_path`. If you are on an earlier version, keep the file outside the discovery root (`base_path('routes/martis/finance-imports.php')`) and check `php artisan route:list` for a copy of your tool's routes at `/`.
+- **`GET /` is already taken.** Under `ToolRoutes::prefix($tool)` the tool's own descriptor endpoint, `GET /api/tools/{uriKey}`, has the same URI as a `Route::get('/')` of yours, and the descriptor wins. Give the route a path of its own (`Route::get('/settings', …)`).
+
 Signature:
 
 ```php

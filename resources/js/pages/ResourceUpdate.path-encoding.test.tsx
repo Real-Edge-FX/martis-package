@@ -71,7 +71,7 @@ beforeEach(() => {
   apiPutMock.mockReset()
   apiUploadMock.mockReset()
   apiGetMock.mockImplementation((path: string) => {
-    if (path.endsWith('/schema')) return Promise.resolve({ data: postsSchema })
+    if (path.split('?')[0].endsWith('/schema')) return Promise.resolve({ data: postsSchema })
     return Promise.resolve({ data: { id: 1, title: 'A post' } })
   })
   apiPutMock.mockReturnValue(new Promise(() => {}))

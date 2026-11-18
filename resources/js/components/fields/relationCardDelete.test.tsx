@@ -57,7 +57,7 @@ function cardPaths(): string[] {
 
 function answerWithRecord(id: number, title: string) {
   apiGetMock.mockImplementation((path: string) => {
-    if (path === '/api/resources/profiles/schema') {
+    if (path.split('?')[0] === '/api/resources/profiles/schema') {
       return Promise.resolve({ data: { fieldsForDetail: [titleField], singularLabel: 'Profile' } })
     }
     return Promise.resolve({ data: { id, title, _title: title }, meta: {}, links: [] })
@@ -66,7 +66,7 @@ function answerWithRecord(id: number, title: string) {
 
 function answerWithoutRecord() {
   apiGetMock.mockImplementation((path: string) => {
-    if (path === '/api/resources/profiles/schema') {
+    if (path.split('?')[0] === '/api/resources/profiles/schema') {
       return Promise.resolve({ data: { fieldsForDetail: [titleField], singularLabel: 'Profile' } })
     }
     return Promise.resolve({ data: null, meta: {}, links: [] })

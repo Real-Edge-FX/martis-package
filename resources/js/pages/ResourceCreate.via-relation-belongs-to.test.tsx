@@ -64,7 +64,7 @@ beforeEach(() => {
   apiPostMock.mockClear()
   apiUploadMock.mockClear()
   apiGetMock.mockImplementation((path: string) => {
-    if (path === '/api/resources/notes/schema') return Promise.resolve({ data: notes })
+    if (path.split('?')[0] === '/api/resources/notes/schema') return Promise.resolve({ data: notes })
     if (path === '/api/resources/contacts/13') return Promise.resolve({ data: { id: 13, _title: 'Ana Silva' } })
     return Promise.resolve({ data: [] })
   })

@@ -73,4 +73,5 @@ return [
     'sort_toggle_direction' => 'Alterar a direção',
     'sort_remove' => 'Remover',
     'sort_add_column' => 'Adicionar coluna',
+    'record_title' => 'Título',
 ];

@@ -42,7 +42,7 @@ const posts = {
 beforeEach(() => {
   apiGetMock.mockReset()
   apiGetMock.mockImplementation((path: unknown) => {
-    if (path === '/api/resources/posts/schema') return Promise.resolve({ data: posts })
+    if (String(path).split('?')[0] === '/api/resources/posts/schema') return Promise.resolve({ data: posts })
     if (typeof path === 'string' && path.startsWith('/api/resources/posts/lenses/popular?')) {
       return Promise.resolve({
         data: [],

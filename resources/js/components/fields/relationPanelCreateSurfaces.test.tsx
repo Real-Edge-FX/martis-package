@@ -73,11 +73,11 @@ function projectSchema(fieldsForCreate: FieldDefinition[]): ResourceSchema {
 function answerRequests(pivotField: FieldDefinition) {
   vi.mocked(api.get).mockReset()
   vi.mocked(api.get).mockImplementation(((url: string) => {
-    if (url === '/api/resources/projects/schema') return Promise.resolve({ data: projectSchema([pivotField]) })
+    if (url.split('?')[0] === '/api/resources/projects/schema') return Promise.resolve({ data: projectSchema([pivotField]) })
     if (url === '/api/resources/projects/inline-create-schema') {
       return Promise.resolve({ data: { fields: [pivotField], singularLabel: 'Project', label: 'Projects' } })
     }
-    if (url.endsWith('/schema')) {
+    if (url.split('?')[0].endsWith('/schema')) {
       return Promise.resolve({ data: { fieldsForIndex: [], fieldsForDetail: [], singularLabel: 'Record', softDeletes: false } })
     }
     if (url.includes('/actions?')) return Promise.resolve({ data: { actions: [] } })
