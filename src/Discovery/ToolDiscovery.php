@@ -29,6 +29,8 @@ use Symfony\Component\Finder\Finder;
  */
 class ToolDiscovery
 {
+    use Concerns\LoadsDeclaredClasses;
+
     private string $toolsPath;
 
     private string $namespace;
@@ -70,8 +72,8 @@ class ToolDiscovery
                 continue;
             }
 
-            if (! class_exists($class)) {
-                require_once $file->getRealPath();
+            if (! $this->loadDeclaredClass($file->getRealPath(), $class)) {
+                continue;
             }
 
             if (! class_exists($class)) {

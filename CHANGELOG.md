@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.39.9] — 2026-11-18
+
+Security patch. **Upgrade if a tool ships a routes file under `martis.tools_path`**, the layout `docs/tools.md` recommends for `loadRoutes()`. Nothing else changes: read [Upgrading to v1.39.9](docs/upgrading.md#upgrading-to-v1399). The same fix ships in v2.24.0.
+
+### Security
+
+- **Discovery no longer executes a PHP file that does not declare the class its path implies.** `ResourceDiscovery` and `ToolDiscovery` walked every `*.php` under `martis.resources_path` / `martis.tools_path` and `require_once`d each one whose derived class was not loaded; `class_exists($class)` would autoload it under PSR-4 as well. A routes file at `app/Martis/Tools/routes/x.php` therefore ran at discovery time, outside any route group: every route in it answered a second time at the application root with no `web`, no `martis.auth`, no tool gate and no session, so a tool's `PUT /upload` also answered as `PUT /upload` on the public site. Both paths into the file are closed: the class is only loaded when a token scan finds its declaration in that file, and `class_exists($class, false)` is tried first so the autoloader is never asked for a non-class file.
+
+Tests: +6 Pest (3516 to 3522).
+
 ## [1.39.8] — 2026-10-10
 
 Security patch. **Upgrade if any Resource policy returns `Illuminate\Auth\Access\Response`.** Nothing else changes: read [Upgrading to v1.39.8](docs/upgrading.md#upgrading-to-v1398). The same fix ships in v2.11.0.
