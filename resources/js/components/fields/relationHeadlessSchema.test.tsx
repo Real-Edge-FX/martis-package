@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Children, isValidElement, type ReactNode } from 'react'
 import { screen, waitFor } from '@testing-library/react'
 import { api } from '@/lib/api'
+import { config } from '@/lib/config'
 import type { FieldDefinition } from '@/types'
 import { relationField, renderOnPage, requestedUrls } from '@/test-support/relationPanels'
 
@@ -54,16 +55,26 @@ const PANELS = [
   { type: 'belongs_to_many', relationship: 'members', relatedResource: 'team-members', metaKey: 'belongsToManyMeta', segment: 'belongs-to-many' },
 ]
 
+const ID_FIELD = {
+  attribute: 'id', label: 'ID', type: 'text', nullable: false, readonly: false, required: false,
+  sortable: false, searchable: false, showOnIndex: true, showOnDetail: true, showOnForms: true, rules: [],
+} as unknown as FieldDefinition
+
 const NAME_FIELD = {
   attribute: 'name', label: 'Name', type: 'text', nullable: false, readonly: false, required: false,
   sortable: false, searchable: false, showOnIndex: true, showOnDetail: true, showOnForms: true, rules: [],
 } as unknown as FieldDefinition
 
-function answer(fieldsForIndex: FieldDefinition[], schemaExtra: Record<string, unknown> = {}, trashed = false): void {
+function answer(
+  fieldsForIndex: FieldDefinition[],
+  schemaExtra: Record<string, unknown> = {},
+  trashed = false,
+  schemaGate: Promise<void> | null = null,
+): void {
   vi.mocked(api.get).mockReset()
   vi.mocked(api.get).mockImplementation(((url: string) => {
     if (url.includes('/schema')) {
-      return Promise.resolve({ data: { fieldsForIndex, fieldsForDetail: [], singularLabel: 'Record', softDeletes: false, ...schemaExtra } })
+      return (schemaGate ?? Promise.resolve()).then(() => ({ data: { fieldsForIndex, fieldsForDetail: [], singularLabel: 'Record', softDeletes: false, ...schemaExtra } }))
     }
     if (url.includes('/actions?')) return Promise.resolve({ data: { actions: [] } })
 
@@ -93,6 +104,7 @@ function renderPanel(panel: (typeof PANELS)[number]) {
 
 afterEach(() => {
   window.history.replaceState(null, '', '/')
+  config.resourceRecordUrls = undefined
 })
 
 describe.each(PANELS)('$type panel — headless related resource', (panel) => {
@@ -166,5 +178,92 @@ describe.each(PANELS)('$type panel — trash controls follow the related resourc
 
     await waitFor(() => expect(container.querySelectorAll('[data-testid="row"]')).toHaveLength(2))
     await waitFor(() => expect(container.querySelectorAll('[data-pr-tooltip="Restore"]').length).toBeGreaterThan(0))
+  })
+})
+
+/*
+ * A headless related resource has no page surface, so a link to one of its
+ * pages lands on a 404. Unless it declares `recordUrl()` (an entry in
+ * `config.resourceRecordUrls`), the panel shows the text and offers no
+ * affordance that navigates to its pages.
+ */
+describe.each(PANELS)('$type panel — links follow the related resource page', (panel) => {
+  it('renders the title and id cells as plain text for a headless resource without a record URL', async () => {
+    answer([], { routable: false })
+    const titleRender = renderPanel(panel)
+
+    expect(await screen.findByText('Alpha title')).toBeTruthy()
+    expect(titleRender.container.querySelectorAll('[data-testid="row"] [data-field="_title"]')).toHaveLength(2)
+    expect(titleRender.container.querySelectorAll('a')).toHaveLength(0)
+    expect(titleRender.container.querySelectorAll('[data-pr-tooltip="View"]')).toHaveLength(0)
+    titleRender.unmount()
+
+    answer([ID_FIELD, NAME_FIELD], { routable: false })
+    const { container } = renderPanel(panel)
+
+    await waitFor(() => expect(container.querySelectorAll('[data-testid="headers"] [data-field="id"]')).toHaveLength(1))
+    expect(container.querySelectorAll('[data-testid="row"] [data-field="id"]')).toHaveLength(2)
+    expect(container.querySelectorAll('a')).toHaveLength(0)
+    expect(container.querySelectorAll('[data-pr-tooltip="View"]')).toHaveLength(0)
+  })
+
+  it('offers no edit action and no create button for a headless resource, whose page routes 404', async () => {
+    config.resourceRecordUrls = { [panel.relatedResource]: '/tools/records?id={id}' }
+    answer([NAME_FIELD], { routable: false })
+    const { container } = renderPanel(panel)
+
+    await waitFor(() => expect(container.querySelectorAll('[data-testid="row"]')).toHaveLength(2))
+    await waitFor(() => expect(container.querySelectorAll('[data-testid="headers"] [data-field="name"]')).toHaveLength(1))
+
+    expect(container.querySelectorAll('[data-pr-tooltip="Edit"]')).toHaveLength(0)
+    expect(screen.queryByText('Create')).toBeNull()
+  })
+
+  it('links to the record URL template when the headless resource declares one', async () => {
+    config.resourceRecordUrls = { [panel.relatedResource]: '/tools/records?id={id}' }
+    answer([], { routable: false })
+    const titleRender = renderPanel(panel)
+
+    const alpha = await screen.findByText('Alpha title')
+    expect(alpha.closest('a')?.getAttribute('href')).toBe('/tools/records?id=1')
+    expect(screen.getByText('Beta title').closest('a')).toBeNull()
+    titleRender.unmount()
+
+    answer([ID_FIELD], { routable: false })
+    const { container } = renderPanel(panel)
+
+    await waitFor(() => expect(container.querySelectorAll('[data-testid="headers"] [data-field="id"]')).toHaveLength(1))
+    const hrefs = Array.from(container.querySelectorAll('a')).map((a) => a.getAttribute('href'))
+    expect(hrefs).toContain('/tools/records?id=1')
+    // BelongsToMany hides the view row action by declaration.
+    expect(container.querySelectorAll('[data-pr-tooltip="View"]')).toHaveLength(panel.type === 'belongs_to_many' ? 0 : 1)
+    expect(hrefs.every((href) => href === '/tools/records?id=1')).toBe(true)
+  })
+
+  it('still links to the record page for a routable resource', async () => {
+    answer([ID_FIELD, NAME_FIELD], { routable: true })
+    const { container } = renderPanel(panel)
+
+    await waitFor(() => expect(container.querySelectorAll('[data-testid="headers"] [data-field="id"]')).toHaveLength(1))
+    const hrefs = Array.from(container.querySelectorAll('a')).map((a) => a.getAttribute('href'))
+    expect(hrefs).toContain(`/resources/${panel.relatedResource}/1`)
+    expect(container.querySelectorAll('[data-pr-tooltip="View"]')).toHaveLength(panel.type === 'belongs_to_many' ? 0 : 1)
+  })
+})
+
+describe.each(PANELS)('$type panel — title column waits for the schema', (panel) => {
+  it('renders no title column while the schema is pending, then the real columns', async () => {
+    let release: () => void = () => {}
+    answer([NAME_FIELD], {}, false, new Promise<void>((resolve) => { release = resolve }))
+    const { container } = renderPanel(panel)
+
+    await waitFor(() => expect(container.querySelectorAll('[data-testid="row"]')).toHaveLength(2))
+    expect(container.querySelectorAll('[data-field="_title"]')).toHaveLength(0)
+    expect(screen.queryByText('Alpha title')).toBeNull()
+
+    release()
+
+    await waitFor(() => expect(container.querySelectorAll('[data-testid="headers"] [data-field="name"]')).toHaveLength(1))
+    expect(container.querySelectorAll('[data-field="_title"]')).toHaveLength(0)
   })
 })

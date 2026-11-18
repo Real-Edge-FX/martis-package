@@ -236,6 +236,29 @@ class BelongsTo extends Field implements ProvidesPickerAttributes
         }
     }
 
+    /**
+     * Whether the eager-loaded related model is the one the foreign key
+     * currently names.
+     *
+     * A save that changed the key leaves the relation loaded with the
+     * record it pointed at before, so the serialized payload would carry
+     * the new id next to the old title.
+     */
+    private function namesLoadedRelated(Model $model, string $relationshipName, Model $loaded, mixed $foreignKeyValue): bool
+    {
+        $relation = $model->{$relationshipName}();
+
+        $ownerKey = $relation instanceof EloquentBelongsTo
+            ? $relation->getOwnerKeyName()
+            : $loaded->getKeyName();
+
+        $current = $loaded->getAttribute($ownerKey);
+
+        // Loose comparison: a key can arrive as a string from the request
+        // and as an int from the database.
+        return $current !== null && $current == $foreignKeyValue;
+    }
+
     /** {@inheritdoc} */
     public function pickerAttributes(): array
     {
@@ -322,14 +345,25 @@ class BelongsTo extends Field implements ProvidesPickerAttributes
             // An index that eager-loads the relation (`$with`, `with()` in
             // `indexQuery()`) already holds the related model: reuse it, so
             // a title that reads a further relation costs no extra query
-            // per row. A loaded relation that is null still falls through
-            // to the trashed-aware query below, since an eager load leaves
-            // a soft-deleted target null.
+            // per row.
+            //
+            // Three cases fall through to the query below instead:
+            // a loaded relation that is null (an eager load leaves a
+            // soft-deleted target null); one that holds another record than
+            // the foreign key names, which is what a save that changed the
+            // key leaves behind; and one whose title does not resolve,
+            // which a column-narrowed eager load (`with(['author' => fn ($q)
+            // => $q->select('id')])`) produces. In each the loaded value
+            // would be wrong, and a wrong title is worse than a query.
             if ($model->relationLoaded($relationshipName)) {
                 $loaded = $model->getRelation($relationshipName);
 
-                if ($loaded instanceof Model) {
-                    $related = $loaded;
+                if ($loaded instanceof Model && $this->namesLoadedRelated($model, $relationshipName, $loaded, $foreignKeyValue)) {
+                    $title = $this->relatedTitle($loaded, $this->titleResourceFor($model));
+
+                    if ($title !== null) {
+                        $related = $loaded;
+                    }
                 }
             }
 
@@ -344,7 +378,10 @@ class BelongsTo extends Field implements ProvidesPickerAttributes
                     // is enough.
                     $related = $relation->withTrashed()->first();
                 } else {
-                    $related = $model->{$relationshipName};
+                    // `$model->{$relationshipName}` would hand back the very
+                    // relation this branch rejected, since a loaded relation
+                    // is what the property access returns. Query it.
+                    $related = $relation->first();
                 }
             }
         }

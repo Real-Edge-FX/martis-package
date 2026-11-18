@@ -318,3 +318,44 @@ class OtherTool extends Tool {
         removeTempToolDir($dir);
     }
 });
+
+it('does not execute a file whose declaration is in another namespace or inside a function', function () {
+    $namespace = 'TestNs\\ToolNonClass\\Scope\\N'.uniqid();
+    $marker = sys_get_temp_dir().'/martis_side_effect_'.uniqid();
+
+    $dir = createTempToolDir([
+        'StatusTool.php' => "<?php
+namespace {$namespace};
+use Martis\\Tools\\Tool;
+class StatusTool extends Tool {
+    public function __construct() {
+        parent::__construct(name: 'StatusTool', uriKey: 'status');
+    }
+}
+",
+        // The short name matches, the namespace does not: the derived
+        // class is `{$namespace}\\routes\\other`, not `Elsewhere\\other`.
+        'routes/other.php' => '<?php
+namespace Elsewhere;
+class other {}
+'.("file_put_contents('{$marker}', 'executed;', FILE_APPEND);\n"),
+        // Declared, but only when that code runs — this file is not meant
+        // to be executed at all.
+        'cond.php' => "<?php
+namespace {$namespace};
+function build(): void { if (false) { class cond {} } }
+".("file_put_contents('{$marker}', 'executed;', FILE_APPEND);\n"),
+    ]);
+
+    try {
+        $found = (new ToolDiscovery($dir, $namespace))->discover();
+
+        expect(file_exists($marker))->toBeFalse();
+        expect($found)->toBe(["{$namespace}\\StatusTool"]);
+    } finally {
+        if (file_exists($marker)) {
+            unlink($marker);
+        }
+        removeTempToolDir($dir);
+    }
+});

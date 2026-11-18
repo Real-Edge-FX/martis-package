@@ -418,7 +418,7 @@ public static function titleAttribute(): string
 
 **Since v2.24.0.** The columns a relation picker searches over this resource, independently of the title.
 
-A picker (`BelongsTo`, `MorphTo`, the attach modal) filters by the resource's [`searchable()`](fields.md) fields. When a resource declares none, the picker falls back to its title attribute, which only works when the title is a real column. A resource whose title comes from an accessor, or from an overridden `title()` (title attribute left at `id`), has no column to search: before v2.24.0 that was a SQL error in the first case and a silently unfiltered page in the second. The fallback now skips a title attribute that is not a column, and logs that the term could not be honoured.
+A relation picker — the `BelongsTo` and `MorphTo` dropdowns, and the pivot-field and action pickers that run through the same relatable endpoint — filters by the resource's [`searchable()`](fields.md) fields. (The many-to-many **attach modal** is not one: it lists records through its own endpoint, which searches with the global-search pipeline and does not read this declaration.) When a resource declares none, the picker falls back to its title attribute, which only works when the title is a real column. A resource whose title comes from an accessor, or from an overridden `title()` (title attribute left at `id`), has no column to search: before v2.24.0 that was a SQL error in the first case and a silently unfiltered page in the second. The fallback now skips a title attribute that is not a column, and logs that the term could not be honoured.
 
 Declare the columns here and the picker filters by them instead:
 
@@ -1162,7 +1162,7 @@ public function afterDelete(Model $model, Request $request): void
 
 ### beforeRestore()
 
-**Since v2.24.0.** Called before a soft-deleted record is restored, inside the same guard as the restore itself. Throw to refuse the restore, with the same exception rules as [`beforeDelete()`](#beforedelete): `UserFacingException`, the typed `ValidationException`, `AuthorizationException` and `ResourceNotFoundException` keep their message and status (Laravel's own `ValidationException` and `AuthorizationException` too), anything else answers 500 with `martis::messages.error_restore` and goes to the log.
+**Since v2.24.0.** Called before a soft-deleted record is restored, inside the same database transaction as the restore and `afterRestore()`. Throw to refuse the restore, with the same exception rules as [`beforeDelete()`](#beforedelete): `UserFacingException`, the typed `ValidationException`, `AuthorizationException` and `ResourceNotFoundException` keep their message and status (Laravel's own `ValidationException` and `AuthorizationException` too), `abort()` passes through to Laravel, and anything else answers 500 with `martis::messages.error_restore` and goes to the log. Because the three run in one transaction, a throw from either hook leaves the row trashed.
 
 ```php
 use Martis\Exceptions\ValidationException;
@@ -1181,7 +1181,7 @@ A restore that a **database** constraint refuses needs no hook: the endpoint ans
 
 ### afterRestore()
 
-**Since v2.24.0.** Called after a successful restore.
+**Since v2.24.0.** Called after a successful restore, still inside its transaction: a throw here rolls the restore back and answers an error, it does not leave the record half-restored. A `restoring` model listener that returns `false` cancels the restore without throwing; the endpoint then answers 422 and `afterRestore()` does not run.
 
 ```php
 public function afterRestore(Model $model, Request $request): void

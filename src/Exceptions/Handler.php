@@ -55,24 +55,6 @@ final class Handler
             return JsonErrorResponse::notFound($e->getMessage())->toResponse();
         }
 
-        // Laravel's own typed exceptions, which a consumer hook or a model
-        // event listener throws as readily as Martis' ones. Outside a
-        // catch-all Laravel renders them itself; inside one (the delete and
-        // restore guards) they would otherwise be flattened to a 500.
-        if ($e instanceof LaravelValidationException) {
-            // Laravel keys its errors by field; the panel reads the list of
-            // `{field, message, code}` every other Martis 422 answers, so
-            // the map is converted rather than passed through.
-            return JsonErrorResponse::validation($e->errors(), $e->getMessage())->toResponse();
-        }
-
-        if ($e instanceof LaravelAuthorizationException) {
-            return response()->json([
-                'message' => $e->getMessage(),
-                'errors' => [],
-            ], 403);
-        }
-
         if ($e instanceof ThrottleRequestsException) {
             // Localise the default "Too Many Attempts." message and respect
             // the Retry-After header Laravel already set on the exception.
@@ -96,6 +78,38 @@ final class Handler
         }
 
         return null;
+    }
+
+    /**
+     * The answer a catch-all of the Martis API gives a user-facing
+     * throwable, or null when it has none.
+     *
+     * This is `render()` plus Laravel's own typed exceptions, which a
+     * consumer hook or a model event listener throws as readily as Martis'
+     * ones. Outside a catch-all Laravel renders those itself (a web form
+     * redirects back with its errors, a host API answers in its own
+     * shape), so they are deliberately **not** in `render()`, which a host
+     * application is invited to call from its own exception handler. Only
+     * the guards that would otherwise flatten them to a 500 — the delete
+     * and restore endpoints — call this.
+     */
+    public static function renderUserFacing(Request $request, Throwable $e): ?JsonResponse
+    {
+        if ($e instanceof LaravelValidationException) {
+            // Laravel keys its errors by field; the panel reads the list of
+            // `{field, message, code}` every other Martis 422 answers, so
+            // the map is converted rather than passed through.
+            return JsonErrorResponse::validation($e->errors(), $e->getMessage())->toResponse();
+        }
+
+        if ($e instanceof LaravelAuthorizationException) {
+            return response()->json([
+                'message' => $e->getMessage(),
+                'errors' => [],
+            ], 403);
+        }
+
+        return self::render($request, $e);
     }
 
     /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -91,6 +92,34 @@ class RdeHookedChannelResource extends RdeChannelResource
     }
 }
 
+/** A resource whose afterRestore() fails after the row was restored. */
+class RdeFailingAfterChannelResource extends RdeChannelResource
+{
+    public static function uriKey(): string
+    {
+        return 'rde-failing-after-channels';
+    }
+
+    public function afterRestore(Model $model, Request $request): void
+    {
+        throw new RuntimeException('hook exploded at /var/www/secret/path');
+    }
+}
+
+/** A resource whose beforeRestore() aborts with an HTTP status, as `abort(403)` does. */
+class RdeAbortingChannelResource extends RdeChannelResource
+{
+    public static function uriKey(): string
+    {
+        return 'rde-aborting-channels';
+    }
+
+    public function beforeRestore(Model $model, Request $request): void
+    {
+        abort(403, 'Custom reason');
+    }
+}
+
 beforeEach(function () {
     $this->withoutMiddleware(MartisAuthenticate::class);
 
@@ -114,6 +143,8 @@ beforeEach(function () {
     $registry->register(RdeChannelResource::class);
     $registry->register(RdeGuardedChannelResource::class);
     $registry->register(RdeHookedChannelResource::class);
+    $registry->register(RdeFailingAfterChannelResource::class);
+    $registry->register(RdeAbortingChannelResource::class);
 });
 
 afterEach(function () {
@@ -230,4 +261,111 @@ it('calls beforeRestore() and afterRestore() around a successful restore', funct
         'before:'.$trashed->id,
         'after:'.$trashed->id,
     ]);
+});
+
+it('rolls the restore back when afterRestore() throws, and answers the generic 500', function () {
+    config(['app.debug' => false]);
+
+    $trashed = RdeChannelModel::create(['label' => 'Original', 'kind' => 'casa_sapo']);
+    $trashed->delete();
+
+    $response = $this->putJson("/martis/api/resources/rde-failing-after-channels/{$trashed->id}/restore");
+
+    $response->assertStatus(500)
+        ->assertJsonPath('message', __('martis::messages.error_restore'));
+    expect($response->getContent())->not->toContain('hook exploded')->not->toContain('/var/www');
+
+    // Without the transaction the row stayed restored while the endpoint failed.
+    expect(RdeChannelModel::withTrashed()->find($trashed->id)->trashed())->toBeTrue();
+});
+
+it('rolls the restore back when a restored model listener throws', function () {
+    config(['app.debug' => false]);
+
+    $trashed = RdeChannelModel::create(['label' => 'Original', 'kind' => 'casa_sapo']);
+    $trashed->delete();
+
+    RdeChannelModel::restored(function (): void {
+        throw new RuntimeException('listener exploded');
+    });
+
+    try {
+        $this->putJson("/martis/api/resources/rde-channel-models/{$trashed->id}/restore")
+            ->assertStatus(500)
+            ->assertJsonPath('message', __('martis::messages.error_restore'));
+
+        expect(RdeChannelModel::withTrashed()->find($trashed->id)->trashed())->toBeTrue();
+    } finally {
+        RdeChannelModel::flushEventListeners();
+    }
+});
+
+it('does not report a restore cancelled by a restoring listener as a success', function () {
+    $trashed = RdeChannelModel::create(['label' => 'Original', 'kind' => 'casa_sapo']);
+    $trashed->delete();
+
+    // Returning false cancels the restore without throwing: Eloquent's
+    // restore() answers false and the row stays trashed.
+    RdeChannelModel::restoring(fn (): bool => false);
+
+    try {
+        $response = $this->putJson("/martis/api/resources/rde-hooked-channels/{$trashed->id}/restore");
+
+        $response->assertStatus(422)
+            ->assertJsonPath('message', __('martis::messages.error_restore'));
+
+        expect(RdeChannelModel::withTrashed()->find($trashed->id)->trashed())->toBeTrue()
+            ->and(RdeHookedChannelResource::$calls)->toBe(['before:'.$trashed->id]);
+    } finally {
+        RdeChannelModel::flushEventListeners();
+    }
+});
+
+it('lets an abort() in beforeRestore() keep its status instead of flattening it to a 500', function () {
+    $trashed = RdeChannelModel::create(['label' => 'Original', 'kind' => 'casa_sapo']);
+    $trashed->delete();
+
+    $response = $this->putJson("/martis/api/resources/rde-aborting-channels/{$trashed->id}/restore");
+
+    $response->assertStatus(403)
+        ->assertJsonPath('message', 'Custom reason');
+    expect(RdeChannelModel::withTrashed()->find($trashed->id)->trashed())->toBeTrue();
+});
+
+it('lets an abort() in a restoring listener keep its status instead of flattening it to a 500', function () {
+    $trashed = RdeChannelModel::create(['label' => 'Original', 'kind' => 'casa_sapo']);
+    $trashed->delete();
+
+    RdeChannelModel::restoring(function (): void {
+        abort(403, 'Custom reason');
+    });
+
+    try {
+        $this->putJson("/martis/api/resources/rde-channel-models/{$trashed->id}/restore")
+            ->assertStatus(403)
+            ->assertJsonPath('message', 'Custom reason');
+
+        expect(RdeChannelModel::withTrashed()->find($trashed->id)->trashed())->toBeTrue();
+    } finally {
+        RdeChannelModel::flushEventListeners();
+    }
+});
+
+it('lets an HttpResponseException from a restoring listener answer as the caller built it', function () {
+    $trashed = RdeChannelModel::create(['label' => 'Original', 'kind' => 'casa_sapo']);
+    $trashed->delete();
+
+    RdeChannelModel::restoring(function (): void {
+        throw new HttpResponseException(response()->json(['custom' => 'payload'], 409));
+    });
+
+    try {
+        $this->putJson("/martis/api/resources/rde-channel-models/{$trashed->id}/restore")
+            ->assertStatus(409)
+            ->assertExactJson(['custom' => 'payload']);
+
+        expect(RdeChannelModel::withTrashed()->find($trashed->id)->trashed())->toBeTrue();
+    } finally {
+        RdeChannelModel::flushEventListeners();
+    }
 });

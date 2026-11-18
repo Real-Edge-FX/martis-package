@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Martis\Fields\BelongsTo;
 use Martis\Fields\Text;
+use Martis\Http\Middleware\MartisAuthenticate;
 use Martis\Resource;
 use Martis\ResourceRegistry;
 
@@ -74,6 +75,52 @@ class BtlArchivedPost extends Model
     }
 }
 
+/** A post whose author is always eager-loaded, as a model with `$with` is. */
+class BtlEagerPost extends BtlPost
+{
+    protected $with = ['author'];
+}
+
+/** The same, with a soft-deleting target (a different resolve() branch). */
+class BtlEagerArchivedPost extends BtlArchivedPost
+{
+    protected $with = ['author'];
+}
+
+class BtlEagerPostResource extends Resource
+{
+    public static function model(): string
+    {
+        return BtlEagerPost::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'btl-eager-posts';
+    }
+
+    public function fields(Request $request): array
+    {
+        return [
+            Text::make('title'),
+            BelongsTo::make('author')->relatedResource('btl-authors')->titleAttribute('name'),
+        ];
+    }
+}
+
+class BtlEagerArchivedPostResource extends BtlEagerPostResource
+{
+    public static function model(): string
+    {
+        return BtlEagerArchivedPost::class;
+    }
+
+    public static function uriKey(): string
+    {
+        return 'btl-eager-archived-posts';
+    }
+}
+
 /** A title that reads a further relation: a second query per row when the author is re-fetched. */
 class BtlAuthorResource extends Resource
 {
@@ -99,6 +146,8 @@ class BtlAuthorResource extends Resource
 }
 
 beforeEach(function () {
+    $this->withoutMiddleware(MartisAuthenticate::class);
+
     Schema::create('btl_countries', function (Blueprint $table) {
         $table->id();
         $table->string('name');
@@ -119,6 +168,8 @@ beforeEach(function () {
     });
 
     app(ResourceRegistry::class)->register(BtlAuthorResource::class);
+    app(ResourceRegistry::class)->register(BtlEagerPostResource::class);
+    app(ResourceRegistry::class)->register(BtlEagerArchivedPostResource::class);
 
     $country = BtlCountry::create(['name' => 'Portugal']);
 
@@ -273,3 +324,103 @@ it('lets an explicit titleAttribute() win over the related resource title, with 
     expect($lazy['title'])->toBe('ana-nick')
         ->and($eager['title'])->toBe('ana-nick');
 });
+
+// ---------------------------------------------------------------------------
+// 5. The loaded relation is reused only while it is the record the key names
+// ---------------------------------------------------------------------------
+
+it('carries the new id and the new title after a save that changed the foreign key', function (string $postClass, string $uriKey) {
+    // The path the review reproduced: the endpoint finds the post (its
+    // `$with` eager-loads the author), fills the key, saves and serializes
+    // the model with the old relation still loaded.
+    $post = $postClass::query()->orderBy('id')->first();
+
+    expect($post->relationLoaded('author'))->toBeTrue()
+        ->and($post->author->name)->toBe('Ana');
+
+    $response = $this->putJson("/martis/api/resources/{$uriKey}/{$post->id}", [
+        'title' => $post->title,
+        'author_id' => 2,
+    ]);
+
+    $response->assertOk();
+
+    expect($post->fresh()->author_id)->toBe(2)
+        ->and($response->json('data.author_id'))->toBe(['id' => 2, 'title' => 'Bruno']);
+})->with([
+    'plain target' => [BtlEagerPost::class, 'btl-eager-posts'],
+    'soft-deleting target' => [BtlEagerArchivedPost::class, 'btl-eager-archived-posts'],
+]);
+
+it('resolves the new record, not the stale relation, when the key changes on a loaded model', function (string $postClass) {
+    $field = BelongsTo::make('author')->titleAttribute('name');
+    $post = $postClass::query()->with('author')->orderBy('id')->first();
+
+    expect($field->resolve($post))->toMatchArray(['id' => 1, 'title' => 'Ana']);
+
+    // The relation stays loaded with Ana; the key now names Bruno.
+    $post->author_id = 2;
+    $post->save();
+
+    expect($post->relationLoaded('author'))->toBeTrue()
+        ->and($post->author->name)->toBe('Ana')
+        ->and($field->resolve($post))->toMatchArray(['id' => 2, 'title' => 'Bruno']);
+})->with([
+    'plain target' => [BtlPost::class],
+    'soft-deleting target' => [BtlArchivedPost::class],
+]);
+
+it('still reuses the loaded relation when the key is the one it was loaded for, as a string or an int', function (mixed $key) {
+    $field = BelongsTo::make('author')->titleAttribute('name');
+    $post = BtlPost::query()->with('author')->orderBy('id')->first();
+
+    // An in-memory change a re-query would not see proves the instance is reused.
+    $post->author->name = 'In memory';
+    $post->author_id = $key;
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+    $resolved = $field->resolve($post);
+    $queries = count(DB::getQueryLog());
+    DB::disableQueryLog();
+
+    expect($resolved)->toMatchArray(['id' => $key, 'title' => 'In memory'])
+        ->and($queries)->toBe(0);
+})->with([
+    'int key' => [1],
+    'string key' => ['1'],
+]);
+
+it('falls back to the query for the title when the eager load narrowed the columns', function (string $postClass) {
+    $field = BelongsTo::make('author')->titleAttribute('name');
+    $post = $postClass::query()
+        ->with(['author' => fn ($query) => $query->select('id')])
+        ->orderBy('id')
+        ->first();
+
+    // The loaded model carries the id and no name: reusing it gave a null title.
+    expect($post->relationLoaded('author'))->toBeTrue()
+        ->and($post->author->name)->toBeNull();
+
+    $resolved = $field->resolve($post);
+
+    expect($resolved['id'])->toBe(1)
+        ->and($resolved['title'])->toBe('Ana');
+})->with([
+    'plain target' => [BtlPost::class],
+    'soft-deleting target' => [BtlArchivedPost::class],
+]);
+
+it('falls back to the query for every row of a column-narrowed eager load', function (string $postClass) {
+    $field = BelongsTo::make('author')->titleAttribute('name');
+    $posts = $postClass::query()
+        ->with(['author' => fn ($query) => $query->select('id')])
+        ->orderBy('id')
+        ->get();
+
+    expect($posts->map(fn (Model $post) => $field->resolve($post)['title'])->all())
+        ->toBe(['Ana', 'Bruno', 'Carla']);
+})->with([
+    'plain target' => [BtlPost::class],
+    'soft-deleting target' => [BtlArchivedPost::class],
+]);

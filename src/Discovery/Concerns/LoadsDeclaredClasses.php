@@ -48,9 +48,16 @@ trait LoadsDeclaredClasses
 
         $quoted = preg_quote($shortName, '/');
 
-        if (preg_match('/\b(?:class|interface|trait|enum)\s+'.$quoted.'\b/i', $contents) !== 1) {
+        if (preg_match('/\b(?:class|interface|trait|enum)\s+'.$quoted.'\b/i', $contents, $match, PREG_OFFSET_CAPTURE) !== 1) {
             return false;
         }
+
+        // Tokenize only up to the end of that candidate declaration. What
+        // decides whether it is real — a comment, a string, a heredoc, the
+        // namespace, the brace depth — is all before it, and a class body
+        // is most of a file. Discovery runs on every boot, so this keeps
+        // the pass proportional to the header rather than to the file.
+        $contents = substr($contents, 0, (int) $match[0][1] + strlen((string) $match[0][0]));
 
         $tokens = @token_get_all($contents);
         $declarations = [T_CLASS, T_INTERFACE, T_TRAIT];
@@ -60,11 +67,63 @@ trait LoadsDeclaredClasses
         }
 
         $count = count($tokens);
+        $namespace = '';
+        $depth = 0;
 
         for ($i = 0; $i < $count; $i++) {
             $token = $tokens[$i];
 
+            // The file's namespace, so `namespace Elsewhere; class web {}`
+            // in `routes/web.php` does not pass for `App\…\routes\web`.
+            if (is_array($token) && $token[0] === T_NAMESPACE) {
+                $namespace = '';
+
+                for ($forward = $i + 1; $forward < $count; $forward++) {
+                    $next = $tokens[$forward];
+
+                    if ($next === ';' || $next === '{') {
+                        // A braced namespace keeps its contents at the
+                        // depth a declaration is expected to sit at.
+                        $i = $forward;
+                        break;
+                    }
+
+                    if (is_array($next) && in_array($next[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
+                        continue;
+                    }
+
+                    if (is_array($next)) {
+                        $namespace .= $next[1];
+                    }
+                }
+
+                continue;
+            }
+
+            // Only a declaration at the top level counts: one inside a
+            // function or an `if` block runs when that code runs, and this
+            // file is not meant to be executed at all.
+            if ($token === '{' || (is_array($token) && in_array($token[0], [T_CURLY_OPEN, T_DOLLAR_OPEN_CURLY_BRACES], true))) {
+                $depth++;
+
+                continue;
+            }
+
+            if ($token === '}') {
+                $depth--;
+
+                continue;
+            }
+
             if (! is_array($token) || ! in_array($token[0], $declarations, true)) {
+                continue;
+            }
+
+            if ($depth !== 0) {
+                continue;
+            }
+
+            if (strcasecmp(trim($namespace, '\\'), trim((string) substr($class, 0, max(0, (int) strrpos($class, '\\'))), '\\')) !== 0) {
                 continue;
             }
 

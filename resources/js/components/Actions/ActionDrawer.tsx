@@ -1,7 +1,7 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "react-router"
-import { api } from "@/lib/api"
-import { apiPath, routePath } from "@/lib/apiPath"
+import { routePath } from "@/lib/apiPath"
+import { useRelatedResourceSchema } from "@/hooks/useRelatedResourceSchema"
 import { componentRegistry } from "@/lib/componentRegistry"
 import { useToast } from "@/contexts/ToastContext"
 import type { OverrideProps, ResourceSchema } from "@/types"
@@ -22,21 +22,26 @@ interface ActionDrawerProps {
    * underneath the overlay.
    */
   onSwitchTo?: (next: { type: "create" | "detail" | "update"; resource: string; recordId?: string | number }) => void
+  /**
+   * The relationship panel that opened the drawer, when it did. Naming it
+   * lets the drawer read the schema of a headless (`routable(false)`)
+   * related resource, which the bare schema endpoint answers with a 404.
+   * Pass it only when `resource` is the panel's related resource.
+   */
+  viaResource?: string
+  viaRelationship?: string
 }
 
 /**
  * Renders a create, detail, or update drawer for any resource,
  * triggered by an ActionResponse (openCreate / openDetail / openUpdate).
  */
-export function ActionDrawer({ type, resource, recordId, onClose, onSuccess, onSwitchTo }: ActionDrawerProps) {
+export function ActionDrawer({ type, resource, recordId, onClose, onSuccess, onSwitchTo, viaResource, viaRelationship }: ActionDrawerProps) {
   const { addToast } = useToast()
   const navigate = useNavigate()
   const qc = useQueryClient()
 
-  const schemaQuery = useQuery({
-    queryKey: ["schema", resource],
-    queryFn: () => api.get<{ data: ResourceSchema }>(apiPath`/api/resources/${resource}/schema`),
-  })
+  const schemaQuery = useRelatedResourceSchema<ResourceSchema>(resource, viaResource, viaRelationship)
 
   if (schemaQuery.isLoading) {
     return <MartisLoader />

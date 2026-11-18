@@ -21,7 +21,6 @@ import { useRelationParent } from './NestedParentContext'
 import { useAttachFormDraft, withFormDraft } from './relation/useAttachFormDraft'
 import { RelationshipTableShell } from '@/components/fields/relation/RelationshipTableShell'
 import { PivotActionModal } from '@/components/fields/relation/PivotActionModal'
-import { recordHref } from '@/lib/recordHref'
 import { pivotRowActions } from '@/lib/relationRowActions'
 import { DataTable } from 'primereact/datatable'
 import { Column } from 'primereact/column'
@@ -228,7 +227,6 @@ function MorphToManyDetailPanel({ field, readOnly = false, formValues }: { field
         fetchUrl={(params) =>
           withQuery(apiPath`/api/resources/${parentResource}/${parentId}/morph-to-many/${relationship}`, params.toString())
         }
-        viewUrl={(id) => recordHref(relatedResource, id)}
         pivotFields={pivotFields}
         selectable={hasPivotActions}
         selectedRows={selectedRows}
@@ -756,7 +754,7 @@ function AttachModal({
             tableClassName="min-w-full"
           >
             <Column selectionMode="multiple" headerStyle={{ width: '3rem' }} />
-            {indexFields.length === 0 && (
+            {!schemaQuery.isPending && indexFields.length === 0 && (
               <Column
                 key="_title"
                 field="_title"

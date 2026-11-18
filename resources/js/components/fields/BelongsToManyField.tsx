@@ -15,7 +15,6 @@ import { RelationshipTableShell } from '@/components/fields/relation/Relationshi
 import { PivotActionModal } from '@/components/fields/relation/PivotActionModal'
 import { useRelationParent } from './NestedParentContext'
 import { useAttachFormDraft, withFormDraft } from './relation/useAttachFormDraft'
-import { recordHref } from '@/lib/recordHref'
 import { useModalHistoryLock } from '@/lib/historyLock'
 import { lockImmutableFields } from '@/lib/lockImmutableFields'
 import { useHiddenAttributes, withoutHiddenFields } from '@/lib/hiddenFields'
@@ -231,7 +230,6 @@ function BelongsToManyDetailPanel({ field, readOnly = false, formValues }: { fie
         fetchUrl={(params) =>
           withQuery(apiPath`/api/resources/${parentResource}/${parentId}/belongs-to-many/${relationship}`, params.toString())
         }
-        viewUrl={(id) => recordHref(relatedResource, id)}
         pivotFields={pivotFields}
         selectable={hasPivotActions}
         selectedRows={selectedRows}
@@ -766,7 +764,7 @@ function AttachModal({
             tableClassName="min-w-full"
           >
             <Column selectionMode="multiple" headerStyle={{ width: '3rem' }} />
-            {indexFields.length === 0 && (
+            {!schemaQuery.isPending && indexFields.length === 0 && (
               <Column
                 key="_title"
                 field="_title"

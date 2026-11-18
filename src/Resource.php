@@ -149,7 +149,8 @@ abstract class Resource implements ResourceContract
      * Columns a relation picker searches over this resource, independently
      * of the title.
      *
-     * A picker (`BelongsTo`, `MorphTo`, the attach modal) searches the
+     * A relation picker (`BelongsTo`, `MorphTo`, and the pivot-field and
+     * action pickers that share the relatable endpoint) searches the
      * resource's `searchable()` fields. When it declares none, it falls
      * back to the title attribute, which only works when the title is a
      * real column: a resource whose title comes from an accessor or from

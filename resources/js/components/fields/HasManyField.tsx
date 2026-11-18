@@ -2,7 +2,6 @@ import type { FieldDisplayProps, FieldInputProps } from './types'
 import { ResourceIcon } from '@/components/ResourceIcon'
 import { RelationshipTableShell } from '@/components/fields/relation/RelationshipTableShell'
 import { useRelationParent } from './NestedParentContext'
-import { recordHref } from '@/lib/recordHref'
 import { apiPath, routePath, withQuery } from "@/lib/apiPath"
 
 /**
@@ -89,7 +88,6 @@ function HasManyDetailTable({ field }: { field: FieldDisplayProps['field'] }) {
       }
       createUrl={`${routePath`/resources/${relatedResource}/create`}${viaParams}`}
       editUrl={(id) => `${routePath`/resources/${relatedResource}/${id}/edit`}${viaParams}`}
-      viewUrl={(id) => recordHref(relatedResource, id)}
       perPage={meta?.perPage ?? 10}
       perPageOptions={meta?.perPageOptions ?? [10, 25, 50]}
       searchable={!!meta?.searchable}

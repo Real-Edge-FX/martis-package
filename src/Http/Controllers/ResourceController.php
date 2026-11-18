@@ -6,8 +6,10 @@ use Dedoc\Scramble\Attributes\QueryParameter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\QueryException;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse as IlluminateJsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Translation\PotentiallyTranslatedString;
@@ -52,6 +54,7 @@ use Martis\Support\ListingGuard;
 use Martis\Support\ListSort;
 use Martis\Support\SortKey;
 use Martis\Support\TranslatedLine;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 /**
  * Generic CRUD controller for all registered Martis resources.
@@ -77,6 +80,14 @@ class ResourceController extends MartisController
 
     /** What a relation picker falls back to for a label when the title is blank (see `relatedRecordLabel()`). */
     private const PICKER_FALLBACK_ATTRIBUTES = ['name', 'title', 'label', 'email'];
+
+    /**
+     * Resources already reported as unsearchable by a relation picker, so
+     * the warning is written once per process instead of per keystroke.
+     *
+     * @var array<class-string<resource>, true>
+     */
+    private static array $warnedUnsearchable = [];
 
     /** Create the controller and inject the resource registry. */
     public function __construct(
@@ -533,6 +544,11 @@ class ResourceController extends MartisController
             ]);
 
             return DatabaseErrorResponse::from($e);
+        } catch (HttpResponseException|HttpExceptionInterface $e) {
+            // `abort()`, and anything the framework already turned into a
+            // response, is the caller's answer: it passes through to
+            // Laravel's handler as it would outside this guard.
+            throw $e;
         } catch (\Throwable $e) {
             // A hook that stops the delete on purpose throws a user-facing
             // exception (see UserFacingException): its message and status
@@ -541,7 +557,7 @@ class ResourceController extends MartisController
             // third-party policy listeners) is internal: its message can
             // hold a path, a bucket or a class name, so the client gets the
             // generic one, and the details stay in the log and in report().
-            if (MartisExceptionHandler::isUserFacing($e) && ($response = MartisExceptionHandler::render($request, $e)) !== null) {
+            if (MartisExceptionHandler::isUserFacing($e) && ($response = MartisExceptionHandler::renderUserFacing($request, $e)) !== null) {
                 return $response;
             }
 
@@ -619,16 +635,32 @@ class ResourceController extends MartisController
         // collision with a live record is the most likely database failure
         // here. It answers 422 with the colliding field, as store() and
         // update() do, instead of letting the raw SQL error escape as 500.
-        $fields = Field::filterForModel(
-            Field::filterForContext($res->resolveDetailFields($request), FieldContext::DETAIL),
-            $request,
-            $model,
-        );
-
+        //
+        // The hooks run inside the same transaction as the restore, so a
+        // throw from `afterRestore()` (or from a `restored` listener)
+        // leaves the row trashed instead of half-applying the action.
         try {
-            $res->beforeRestore($model, $request);
-            $model->restore();
-            $res->afterRestore($model, $request);
+            $restored = DB::transaction(function () use ($res, $model, $request): bool {
+                $res->beforeRestore($model, $request);
+
+                // A `restoring` listener that returns false cancels the
+                // restore without throwing: Eloquent then returns false and
+                // the row is still trashed, so the action did not happen.
+                if ($model->restore() === false) {
+                    return false;
+                }
+
+                $res->afterRestore($model, $request);
+
+                return true;
+            });
+
+            if (! $restored) {
+                return JsonErrorResponse::validation(
+                    [],
+                    TranslatedLine::get('martis::messages.error_restore'),
+                )->toResponse();
+            }
         } catch (QueryException $e) {
             Log::error('Martis: database error on restore', [
                 'resource' => $resource,
@@ -636,14 +668,27 @@ class ResourceController extends MartisController
                 'error' => $e->getMessage(),
             ]);
 
-            return DatabaseErrorResponse::from($e, $fields, $model);
+            return DatabaseErrorResponse::from(
+                $e,
+                Field::filterForModel(
+                    Field::filterForContext($res->resolveDetailFields($request), FieldContext::DETAIL),
+                    $request,
+                    $model,
+                ),
+                $model,
+            );
+        } catch (HttpResponseException|HttpExceptionInterface $e) {
+            // `abort()`, and anything the framework already turned into a
+            // response, is the caller's answer: it passes through to
+            // Laravel's handler as it would outside this guard.
+            throw $e;
         } catch (\Throwable $e) {
             // A hook that stops the restore on purpose throws a user-facing
             // exception (see UserFacingException): its message and status
             // reach the client. Anything else is internal: its message can
             // hold a path or a class name, so the client gets the generic
             // one and the details stay in the log and in report().
-            if (MartisExceptionHandler::isUserFacing($e) && ($response = MartisExceptionHandler::render($request, $e)) !== null) {
+            if (MartisExceptionHandler::isUserFacing($e) && ($response = MartisExceptionHandler::renderUserFacing($request, $e)) !== null) {
                 return $response;
             }
 
@@ -2107,9 +2152,16 @@ class ResourceController extends MartisController
                 }
 
                 if ($columns === []) {
-                    Log::warning('Martis: relatable search term ignored, the resource declares no searchable field and no relatableSearchColumns()', [
-                        'resource' => $relatedResourceClass,
-                    ]);
+                    // Once per resource per process: a picker searches on
+                    // every keystroke, and the cause is a declaration, not
+                    // the request.
+                    if (! isset(self::$warnedUnsearchable[$relatedResourceClass])) {
+                        self::$warnedUnsearchable[$relatedResourceClass] = true;
+
+                        Log::warning('Martis: relatable search term ignored, the resource declares no searchable field and no relatableSearchColumns()', [
+                            'resource' => $relatedResourceClass,
+                        ]);
+                    }
                 } else {
                     $query->where(function (Builder $q) use ($columns, $search, $likeOp): void {
                         foreach ($columns as $column) {
